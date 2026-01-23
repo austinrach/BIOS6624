@@ -1,1 +1,1 @@
-# BIOS6624
+# This is the repository for BIOS 6624: Advanced Statistical Methods and Analysis. More details will be added as the course progresses.
