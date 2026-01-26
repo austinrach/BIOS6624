@@ -1,1 +1,45 @@
 Background
+Background: Cortisol and DHEA are two hormones that regulate our stress system. Cortisol is known to have a peak shortly after waking and then falls over the day to a low in the evening. Features of this diurnal pattern have been implicated in depression, sleep disorders and many other conditions. Being able to collect samples to measure this curve in a natural environment (e.g. at home) is useful for research on this endocrine system. The accuracy of saliva sample collection is crucial to obtaining reliable characterization of the cortisol awakening response and perhaps defining the diurnal decline in salivary cortisol. 
+
+ 
+
+Investigator's Research Question: We tested the use of a convenient and novel collection device for collecting saliva on strips of filter paper in a specially constructed booklet for determination of both salivary cortisol and DHEA.  In the present study, 31 healthy control subjects collected saliva samples four times a day for three days using the filter paper device (Saliva Procurement and Integrated Testing (SPIT) booklet) which was maintained during the collection period in a large plastic bottle with an electronic monitoring cap. Subjects were asked to collect saliva samples at waking, 30 min later, before lunch and 600 min after waking.  The time of waking and the time before lunch were allowed to vary by the subjects’ schedules.
+
+ 
+
+Our questions are: 1) what is the agreement between the subject’s recordings of sampling times compared to the times recorded by an electronic monitoring cap?, 2) are subjects adhering accurately to the +30min and +10 hour sampling times required by a study protocol?, 3) what are the changes of cortisol and DHEA over time?
+
+ 
+
+Variable definitions:
+
+Subjectid: Subject number
+
+CollectionDate: Date of sample collection formatted as mm/dd/yyyy
+
+Collection Sample: ordering of samples over the day ranging from 1-4. 1 is at waking, 2 ~30 min from waking, 3 at ~lunch and 4 at ~10 hours after waking.
+
+Booklet: Clock time: Time of day of sample collection noted by participant formatted as hh:mm in military time.
+
+MEMs: Clock time: Time of day of sample collection by electronic cap stamp formatted as hh:mm in military time.
+
+Sleep Diary reported wake time: Time of day of waking formatted as hh:mm in military time.
+
+Booklet: Sample interval: Number of hours and minutes from waking recorded by participant formatted as hh:mm where waking was recorded as midnight 00:00
+
+Booklet: Sample interval Decimal Time (mins): Number of minutes from waking for the sample as recorded by participant.
+
+MEMs: Sample interval: Number of hours and minutes from waking electronic cap stamp formatted as hh:mm where waking was recorded as midnight 00:00
+
+MEMs: Sample interval Decimal Time (mins): Number of minutes from waking electronic stamp.
+
+Cortisol (ug/dl): Cortisol levels in nanograms/deciliter units.
+
+DHEA (pg/dl): DHEA levels in picograms/deciliter units.
+
+Cortisol (nmol/L): Cortisol levels in a different unit.
+
+DHEA (nmol/L): DHEA levels in a different unit.
+
+DAYNUMBER: Number of the day samples were collected. 1-3 days.
+
