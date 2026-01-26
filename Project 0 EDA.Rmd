@@ -1,0 +1,10 @@
+---
+title: "Project 0 EDA"
+author: "Rachel Austin'
+output: html_document
+date: "2026-01-26"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
