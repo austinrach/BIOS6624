@@ -4,6 +4,18 @@
 # Session Data files
 .RData
 .RDataTmp
+#R Data files
+*.RData
+*.rda
+*.rdata
+*.rda
+*.csv
+*.txt
+*.dat
+*.xlsx*
+*.sas7bdat
+DataRaw/
+DataProcessed/
 # User-specific files
 .Ruserdata
 # Example code in package build process
