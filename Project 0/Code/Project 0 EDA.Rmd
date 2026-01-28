@@ -11,7 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 
 ```{r}
-df <- read.csv("/Users/austinra/BIOS6624/Project 0/DataRaw/Project0_Clean_v2.csv")
+df <- read.csv("/Users/austinra/Downloads/Project0_Clean_v2.csv")
 ```
 
 Missing values but time recorded- the sample could not be analyzed
@@ -30,39 +30,71 @@ What are the changes to DHEA and cortisol over time?
 
 Cortisol will rise 30 minutes after waking and decrease over the next 10 hours
 
-Think about how to account for days!!!!!!!!!
+Make sure to incorporate effects in report
 
 Question 1:
+sleep diary reported wake time and mems clock time
 What is the agreement between the subject's recordings of sampling times compared to the times recorded by an electric monitoring cap?
-Scatter plot of cap time between waking up and booklet time since waking up (continuous)
+Scatter plot of cap time (minutes) from waking up and booklet time (minutes) since waking up (continuous), identity line (calculate yourself)
+
 Each person has four samples per day over three days so they'll have twelve sampling times and twelve recorded cap times
 Find the difference between recorded sampling time and recorded cap time, plot this distribution. (if missing don't include that data point)
 Record rates of missingness between the caplet time and booklet time
+Don't need to stratify by day or sample time
 
-One sample t.test comparing sampling and electric monitoring cap, Pearsons correlation, Mixed model - let's do mixed model and use ICC to capture agreement 
-pivot to long then implement the model with random component for subject and maybe sample (check conevrgence)
-Test of association, significant bias? 
+Look at difference between book and cap time in table one
+Set up mixed model with book time as outcome, and cap as pred, random effect is subject
+think about perfect agreement (intercept and slope - intercept : 0 , slope : 1 if negative then people consistently recording earlier and is positive then people consistently recording later)
+
+
+Comparing sampling and electric monitoring cap, Mixed model 
+pivot to long then implement the model with random component for subject and maybe sample # (check convergence)
+Test of association, significant bias
+
+
+Notes from 01/28/2026
 
 Question 2: 
 Are subjects adhering accurately to the +30 min and +10 hour sampling times required by a protocol?
-Descriptive statistics okay maybe try 
+Descriptive statistics okay maybe try a logistic regression analysis with random subject component
+Or could pool all samples together
 
 Adherence window
 30 minutes and 10 hour after waking
 One analysis for good adherence = 7.5 minutes before or after (inclusive) - proportion of those who met this
 One analysis for adequate adherence = 15 minutes before or after (inclusive) - proportion of those who met this 
 Need deviation variable for both cap and booklet
-1. create var that is 30 min from waking and 10 
+1. create var that is 30 min from waking and 10 hours
 2. create diff variable
 
-Descriptive stats then a logistic regression analysis? with random subj component
 
 Question 3:
 Spaghetti plot to determine patterns
-Piecewise linear regression - maybe knots at 30 mins, 1 hr  ? less interested in significance, more interested in magnitude
+Piecewise linear regression (lmm w random slope for subject) - maybe knot at 30 mins less interested in significance, more interested in magnitude/rate 
+Maybe a spline  with a single knot at 30 mins
 
-Booklet time or cap time - choose whichever you think is best froma. statistical point of view
+Booklet time or cap time - choose whichever you think is best from a statistical point of view
 
 Biological Range of Data
 Cortisol > 26 keep but weird, Cortisol > 80 incorrect - probably a laboratory error
 DHEA upper limit on assay is 5.205 (max value in dataset) - probably an error unless this is recorded repeatedy by the same individual (probably exclude these individuals bc they have a different process going ons)
+
+
+EDA:
+```{r}
+# Carry Sleep.Diary.reported.wake.time down by subject by date 
+
+# Carry Booklet Sample Interval over with 0s
+
+# Booklet..Sample.Interval
+
+# MEMs..Sample.interval
+
+# 
+
+
+# Fill in any missing NA variables
+plot(df$Booket..Clock.Time, df$MEMs..Clock.Time)
+```
+
+Outliers: Check no cortisol > 80, check no DHEA >5.205
