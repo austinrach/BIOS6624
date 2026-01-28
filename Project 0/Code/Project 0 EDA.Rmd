@@ -14,3 +14,55 @@ knitr::opts_chunk$set(echo = TRUE)
 df <- read.csv("/Users/austinra/BIOS6624/Project 0/DataRaw/Project0_Clean_v2.csv")
 ```
 
+Missing values but time recorded- the sample could not be analyzed
+
+Sample Interval Decimal Time MEMs and Booklet should not be used
+
+Time since they reported waking up rather than calculated time intervals
+
+Electronic cap - can malfunction if the battery is low, user error - not screwing the cap closed and there can be booklet error so neither of these should be considered the truth 
+
+Agreement between subject's recordings of sample times compared to the times recorded by an electronic monitoring cap. x and y plot of these- is there a strong correlation or association. are people recording the time before or after the cap does? is there bias?
+
+999 is missing
+
+What are the changes to DHEA and cortisol over time?
+
+Cortisol will rise 30 minutes after waking and decrease over the next 10 hours
+
+Think about how to account for days!!!!!!!!!
+
+Question 1:
+What is the agreement between the subject's recordings of sampling times compared to the times recorded by an electric monitoring cap?
+Scatter plot of cap time between waking up and booklet time since waking up (continuous)
+Each person has four samples per day over three days so they'll have twelve sampling times and twelve recorded cap times
+Find the difference between recorded sampling time and recorded cap time, plot this distribution. (if missing don't include that data point)
+Record rates of missingness between the caplet time and booklet time
+
+One sample t.test comparing sampling and electric monitoring cap, Pearsons correlation, Mixed model - let's do mixed model and use ICC to capture agreement 
+pivot to long then implement the model with random component for subject and maybe sample (check conevrgence)
+Test of association, significant bias? 
+
+Question 2: 
+Are subjects adhering accurately to the +30 min and +10 hour sampling times required by a protocol?
+Descriptive statistics okay maybe try 
+
+Adherence window
+30 minutes and 10 hour after waking
+One analysis for good adherence = 7.5 minutes before or after (inclusive) - proportion of those who met this
+One analysis for adequate adherence = 15 minutes before or after (inclusive) - proportion of those who met this 
+Need deviation variable for both cap and booklet
+1. create var that is 30 min from waking and 10 
+2. create diff variable
+
+Descriptive stats then a logistic regression analysis? with random subj component
+
+Question 3:
+Spaghetti plot to determine patterns
+Piecewise linear regression - maybe knots at 30 mins, 1 hr  ? less interested in significance, more interested in magnitude
+
+Booklet time or cap time - choose whichever you think is best froma. statistical point of view
+
+Biological Range of Data
+Cortisol > 26 keep but weird, Cortisol > 80 incorrect - probably a laboratory error
+DHEA upper limit on assay is 5.205 (max value in dataset) - probably an error unless this is recorded repeatedy by the same individual (probably exclude these individuals bc they have a different process going ons)
