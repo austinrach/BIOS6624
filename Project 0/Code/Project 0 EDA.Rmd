@@ -78,23 +78,30 @@ Booklet time or cap time - choose whichever you think is best from a statistical
 Biological Range of Data
 Cortisol > 26 keep but weird, Cortisol > 80 incorrect - probably a laboratory error
 DHEA upper limit on assay is 5.205 (max value in dataset) - probably an error unless this is recorded repeatedy by the same individual (probably exclude these individuals bc they have a different process going ons)
+if there is good agreement we can impute, otherwise choose one time 
 
 
 EDA:
 ```{r}
-# Carry Sleep.Diary.reported.wake.time down by subject by date 
+glimpse(df)
+```
+```{r}
 
-# Carry Booklet Sample Interval over with 0s
+#SubjectID needs to be Categorical
+#Collection.Date should be Date
+#Collection.Sample should be Categorical
+#Booket..Clock.Time should be DateTime
+#MEMs..Clock.Time should be DateTime
+#Sleep.Diary.reported.wake.time should be carried down for each subject by Collection.Date or DAYNUMB
 
-# Booklet..Sample.Interval
+#Sample Intervals should not be used in the analysis - calculate own values
+#Booklet..Sample.interval is the Number of hours and minutes from waking recorded by participant formatted as hh:mm where waking was recorded as midnight 00:00
+#Booklet..Sample.interval.Decimal.Time..mins. integer representation of previous variable aka number of minutes from waking for the sample as recorded by participant.
+# MEMs..Sample.interval  Number of hours and minutes from waking electronic cap stamp formatted as hh:mm where waking was recorded as midnight 00:00
+#MEMs..Sample.interval.Decimal.Time..mins. integer representation of previous variable aka number of minutes from waking electronic stamp.
 
-# MEMs..Sample.interval
 
-# 
-
-
-# Fill in any missing NA variables
-plot(df$Booket..Clock.Time, df$MEMs..Clock.Time)
+#Cortisol..ug.dl., DHEA..pg.dl., Cortisol..nmol.L., DHEA..nmol.L. can be left as is
 ```
 
 Outliers: Check no cortisol > 80, check no DHEA >5.205
