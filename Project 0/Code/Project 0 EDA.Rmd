@@ -11,6 +11,8 @@ library(dplyr)
 library(lubridate)
 library(tidyr)
 library(openxlsx)
+library(lme4)
+library(lmerTest)
 ```
 
 
@@ -176,8 +178,18 @@ Save processed data
 #write.xlsx(df, "/Users/austinra/Documents/MS BIOS/Spring 2026/BIOS 6624/Project 0/Data Processed/Project0_ProcessedData.xlsx")
 ```
 
+Look at difference between book and cap time in table one
+
+
+
+```{r}
+
+```
+
 Question 1:
 What is the agreement between the subject's recordings of sampling times compared to the times recorded by an electric monitoring cap?
+
+Record rates of missingness between the caplet time and booklet time
 
 ```{r}
 # Cap time distribution
@@ -197,19 +209,42 @@ table(negative_captime$cap_interval_mins)
 #14 cap times with negative values, this most likely means the participant recorded a wake time in their booklet later than they actually woke up
 
 na_captime <- df%>% filter(is.na(cap_interval_mins))
-table(na_captime$MEMs..Clock.Time, useNA = "ifany")
-#Confirmed NA cap times are due to missing data not coding error
+table(na_captime$cap_interval_mins, useNA = "ifany")
+#57 missing cap_interval mins out of 366 observations
 ```
 
 
 ```{r}
 # Book time distribution
+ggplot(df %>% filter(!is.na(booklet_interval_mins)),
+       aes(booklet_interval_mins)) +
+  geom_histogram(binwidth = 10, fill = "steelblue", alpha = 0.8) +
+  theme_minimal(base_size = 14) +
+  labs(
+    x = "Booklet minutes since wake",
+    y = "Number of samples",
+    title = "Booklet Sampling Interval Distribution"
+  )
+
+#0 book times with negative values
+negative_booklettime <- df %>% filter(!is.na(booklet_interval_mins) & booklet_interval_mins < 0)
+table(negative_booklettime$booklet_interval_mins, useNA = "ifany")
+
+
+na_booklettime <- df%>% filter(is.na(booklet_interval_mins))
+table(na_booklettime$booklet_interval_mins, useNA = "ifany")
+#31 missing booklet_interval_mins out of 366 observations
+```
+
+Removing observations with missing cap_interval_mins or missing booklet_interval_mins from df for this part of the analysis
+```{r}
+df_q1 <- filter(df, !is.na(cap_interval_mins) & !is.na(booklet_interval_mins))
 ```
 
 
 ```{r}
 #Scatter plot of cap time (minutes) from waking up and booklet time (minutes) since waking up (continuous)
-ggplot(df, aes(x = cap_interval_mins, y = booklet_interval_mins)) +
+ggplot(df_q1, aes(x = cap_interval_mins, y = booklet_interval_mins)) +
   geom_point(alpha = 0.6) +
   labs(
     x = "Cap interval (minutes since wake)",
@@ -219,11 +254,14 @@ ggplot(df, aes(x = cap_interval_mins, y = booklet_interval_mins)) +
   geom_abline(slope = 1, intercept = 0, color = "blue") +
   theme_minimal() +
   coord_equal()
-
 ```
+
+
+
+
 ```{r}
 #Closer look at the bottom left corner of the graph - 
-ggplot(df, aes(x = cap_interval_mins, y = booklet_interval_mins)) +
+ggplot(df_q1, aes(x = cap_interval_mins, y = booklet_interval_mins)) +
   geom_point(alpha = 0.6) +
   labs(
     x = "Cap interval (minutes since wake)",
@@ -233,26 +271,66 @@ ggplot(df, aes(x = cap_interval_mins, y = booklet_interval_mins)) +
   geom_abline(slope = 1, intercept = 0, color = "blue") +
   theme_minimal() +
   coord_equal()+ 
-  coord_cartesian(xlim = c(-5,50),
-                  ylim = c(-5, 50))
+  coord_cartesian(xlim = c(min(df_q1$cap_interval_mins),50),
+                  ylim = c(min(df_q1$booklet_interval_mins), 50))
 ```
 
-Each person has four samples per day over three days so they'll have twelve sampling times and twelve recorded cap times
-Find the difference between recorded sampling time and recorded cap time, plot this distribution. (if missing don't include that data point)
-Record rates of missingness between the caplet time and booklet time
-Don't need to stratify by day or sample time
 
-Look at difference between book and cap time in table one
-Set up mixed model with book time as outcome, and cap as pred, random effect is subject
-think about perfect agreement (intercept and slope - intercept : 0 , slope : 1 if negative then people consistently recording earlier and is positive then people consistently recording later)
-
-
-Comparing sampling and electric monitoring cap, Mixed model 
-pivot to long then implement the model with random component for subject and maybe sample # (check convergence)
-Test of association, significant bias
-
+Find the difference between recorded sampling time and recorded cap time, plot this distribution
 ```{r}
+df_q1$booklet_cap_difference <- df_q1$booklet_interval_mins - df_q1$cap_interval_mins
+ggplot(df_q1,
+       aes(booklet_cap_difference)) +
+  geom_histogram(binwidth = 10, fill = "steelblue", alpha = 0.8) +
+  geom_text(
+    stat = "bin",
+    binwidth = 10,
+    aes(label = after_stat(count)),
+    vjust = -0.3,
+    size = 3
+  ) +
+  theme_minimal(base_size = 14) +
+  labs(
+    x = "Booklet interval minus cap interval",
+    y = "Number of samples",
+    title = "Difference in Sampling Interval Distribution"
+  )
+```
+
+
+
+Comparing booklet and electric monitoring cap using a mixed model:
+```{r}
+q1.lmm <- lmer(booklet_interval_mins ~ cap_interval_mins + (1|SubjectID), 
+               data = df_q1)
+summary(q1.lmm)
+```
+
+Visualizing fit
+```{r}
+plot(q1.lmm)
+qqnorm(residuals(q1.lmm))
+qqline(residuals(q1.lmm))
+```
+
+Visualizing fitted vs observed values
+```{r}
+df_q1 <- df_q1 %>% mutate(booklet_fitted = fitted(q1.lmm))
+
+ggplot(df_q1,
+       aes(x = booklet_fitted,
+           y = booklet_interval_mins)) +
+  geom_point(alpha = 0.6) +
+  geom_abline(slope = 1, intercept = 0, color = "blue", linewidth = 1) +
+  labs(
+    x = "Fitted booklet interval (minutes)",
+    y = "Observed booklet interval (minutes)",
+    title = "Observed vs Fitted Booklet Sampling Times"
+  ) +
+  coord_equal() +
+  theme_minimal(base_size = 14)
 
 ```
+
 
 
