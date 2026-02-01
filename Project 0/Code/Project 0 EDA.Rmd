@@ -304,7 +304,10 @@ Comparing booklet and electric monitoring cap using a mixed model:
 q1.lmm <- lmer(booklet_interval_mins ~ cap_interval_mins + (1|SubjectID), 
                data = df_q1)
 summary(q1.lmm)
+confint(q1.lmm)
 ```
+For every 1 minute increase in recorded cap time, recorded booklet time increases by 0.995417 minutes (95% CI: 0.981, 1.010, p-value: <0.0001). This suggests there is strong agreement between recorded cap time and recorded booklet time. The intercept suggests there is bias though, subjects recorded sample collection in their booklet about 6.888 (95% CI: -12.685, -1.147, p-value: 0.022) minutes earlier than recorded sample collection by the electronic cap. 
+
 
 Visualizing fit
 ```{r}
@@ -312,6 +315,9 @@ plot(q1.lmm)
 qqnorm(residuals(q1.lmm))
 qqline(residuals(q1.lmm))
 ```
+
+
+The residuals are fairly close to 0 for most of the fitted values but there are a few observations with very large negative residuals. The qqplot shows the model is doing a good job fitting the majority of the data but there is strong deviation in the tails with some large negative and positive values. 
 
 Visualizing fitted vs observed values
 ```{r}
