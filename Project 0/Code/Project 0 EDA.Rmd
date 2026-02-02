@@ -14,6 +14,7 @@ library(openxlsx)
 library(lme4)
 library(lmerTest)
 library(kableExtra)
+library(segmented)
 ```
 
 
@@ -455,6 +456,7 @@ hist(log(df$Cortisol..nmol.L.))
 hist(df$DHEA..nmol.L.)
 #Again heavy right skew - let's look at the log transform
 hist(log(df$DHEA..nmol.L.))
+#Let's proceed with logging this variable
 ```
 Check for missing Cortisol values:
 ```{r}
@@ -467,4 +469,70 @@ Check for missing DHEA
 ```{r}
 sum(is.na(df$DHEA..nmol.L.))
 ```
+What are the patterns of change over the course of the day? What is the investigator interested in knowing about changes over time?
+The investigator stated that levels of cortisol and DHEA are expected to increase sharply from waking to 30 minutes after waking and then decline more slowly over the rest of the day.
+She was interested in knowing if the SPIT test shows this expected pattern.
+She wanted to know: 1) is there an increase in cortisol and/or DHEA from waking to 30 minutes post waking? And 2) what is the rate of decline in cortisol and DHEA after 30 minutes from waking?
+She also stated that even if there are not statistically significant differences, she would like to know the estimates for the initial increase and rates of decline so she can compare them to what is known from other more standard hormone tests.
+
+
+Significant outlier
+```{r}
+ggplot(df, aes(x = cap_interval_mins, y = Cortisol..nmol.L., group = SubjectID)) +
+  geom_line() +
+  theme_minimal(base_size = 14) +
+  labs(
+    x = "Minutes since waking (cap)",
+    y = "Cortisol (nmol/L)",
+    title = "Cortisol Over Time Since Waking"
+  )
+```
+
+```{r}
+ggplot(df, aes(x = cap_interval_mins, y = df$DHEA..nmol.L., group = SubjectID)) +
+  geom_line() +
+  theme_minimal(base_size = 14) +
+  labs(
+    x = "Minutes since waking (cap)",
+    y = "DHEA (nmol/L)",
+    title = "DHEA Over Time Since Waking"
+  )
+```
+
+
+
+
+Create variable for 30 minute knot
+```{r}
+#Modified from BIOS 6643 code- changepoint creation
+df <- df %>%
+  mutate(
+    wake_30 = pmin(cap_interval_mins, 30),
+    after_30 = pmax(cap_interval_mins - 30, 0),
+    log_cortisol = log(Cortisol..nmol.L.),
+    log_dhea = log(DHEA..nmol.L.)
+  )
+
+```
+
+
+Piecewise linear regression (lmm w random slope for subject) - maybe knot at 30 mins less interested in significance, more interested in magnitude/rate 
+```{r}
+q3_cortisol.lmm <- lmer(
+  log_cortisol ~ wake_30 + after_30 + (1 | SubjectID),
+  data = df,
+  REML = FALSE
+)
+summary(q3_cortisol.lmm)
+```
+
+```{r}
+q3_dhea.lmm <- lmer(
+  log_dhea ~ wake_30 + after_30 + (1 | SubjectID),
+  data = df,
+  REML = FALSE
+)
+summary(q3_dhea.lmm)
+```
+
 
