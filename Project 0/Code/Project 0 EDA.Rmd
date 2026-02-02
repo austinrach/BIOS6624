@@ -40,22 +40,6 @@ Cortisol will rise 30 minutes after waking and decrease over the next 10 hours
 Make sure to incorporate effects in report
 
 
-
-
-
-Question 3:
-Spaghetti plot to determine patterns
-Piecewise linear regression (lmm w random slope for subject) - maybe knot at 30 mins less interested in significance, more interested in magnitude/rate 
-Maybe a spline  with a single knot at 30 mins
-
-Booklet time or cap time - choose whichever you think is best from a statistical point of view
-
-Biological Range of Data
-Cortisol > 26 keep but weird, Cortisol > 80 incorrect - probably a laboratory error
-DHEA upper limit on assay is 5.205 (max value in dataset) - probably an error unless this is recorded repeatedy by the same individual (probably exclude these individuals bc they have a different process going ons)
-if there is good agreement we can impute, otherwise choose one time 
-
-
 EDA:
 ```{r}
 glimpse(df)
@@ -445,5 +429,42 @@ sample_props <- df %>%
 
 kable(sample_props)
 #polish this table for report!
+```
+
+
+Question 3:
+Spaghetti plot to determine patterns
+Piecewise linear regression (lmm w random slope for subject) - maybe knot at 30 mins less interested in significance, more interested in magnitude/rate 
+Maybe a spline  with a single knot at 30 mins
+
+Booklet time or cap time - choose whichever you think is best from a statistical point of view
+
+Biological Range of Data
+Cortisol > 26 keep but weird, Cortisol > 80 incorrect - probably a laboratory error
+DHEA upper limit on assay is 5.205 (max value in dataset) - probably an error unless this is recorded repeatedly by the same individual (probably exclude these individuals bc they have a different process going on)
+if there is good agreement we can impute, otherwise choose one time 
+
+```{r}
+#Visualize cortisol
+hist(df$Cortisol..nmol.L.)
+#Heavy right skew - let's look at a log transformation
+hist(log(df$Cortisol..nmol.L.))
+```
+```{r}
+#Visualizing DHEA
+hist(df$DHEA..nmol.L.)
+#Again heavy right skew - let's look at the log transform
+hist(log(df$DHEA..nmol.L.))
+```
+Check for missing Cortisol values:
+```{r}
+#Previously removed Cortisol (nmol/L) with levels above 80, these should return 0 
+sum(is.na(df$Cortisol..nmol.L.))
+sum(is.na(df$Cortisol..ug.dl.))
+```
+
+Check for missing DHEA
+```{r}
+sum(is.na(df$DHEA..nmol.L.))
 ```
 
