@@ -22,13 +22,9 @@ library(stringr)
 
 
 ```{r}
-df <- read.csv("/Users/austinra/Documents/MS BIOS/Spring 2026/BIOS 6624/Project 0/Data Raw/Project0_Clean_v2.csv")
+df <- read.csv("/Users/austinra/BIOS6624/Project 0/Data Raw/Project0_Clean_v2.csv")
 ```
 
-
-Missing values but time recorded- the sample could not be analyzed
-Sample Interval Decimal Time MEMs and Booklet should not be used
-9999 is missing
 
 EDA:
 ```{r}
@@ -53,26 +49,35 @@ df %>%
 #61 blank MEMs..Clock.Time
 #279 blank Sleep.Diary.reported.wake.time
 #5 Cortisol..nmol.L._na, 5 DHEA..nmol.L._na
+```
+Check each SubjectID has proper number of samples
+```{r}
+problem_check <- df %>% group_by(SubjectID, DAYNUMB) %>% summarize(n = n()) %>% filter(n > 4)
 
-#Need to fill in these blanks with NA values
+#Subject 3029 has 12 observations on day 3, assign new DAYNUMB based on date for this subject
 df_mod <- df %>%
+  mutate(Collection.Date = as.Date(Collection.Date, format = "%m/%d/%Y")) %>%
   mutate(
-    across(
-      c(Booket..Clock.Time, MEMs..Clock.Time, Sleep.Diary.reported.wake.time),
-      ~ na_if(str_trim(.x), "")
+    DAYNUMB = case_when(
+      SubjectID == 3029 & Collection.Date == "2018-10-07" ~ 1,
+      SubjectID == 3029 & Collection.Date == "2018-10-10" ~ 2,
+      SubjectID == 3029 & Collection.Date == "2018-10-12" ~ 3,
+      TRUE ~ DAYNUMB
     )
-  )
+  ) %>% ungroup()
+
 
 ```
 
 
+
+
+Modify variable types
 ```{r}
 #SubjectID needs to be Categorical
 df_mod$SubjectID <- as.character(df_mod$SubjectID)
-#Collection.Date should be Date
-df_mod$Collection.Date <- as.Date(df_mod$Collection.Date, format = "%m/%d/%Y")
 #Collection.Sample should be Categorical
-df_mod$Collection.Sample <- as.factor(df_mod$Collection.Sample)
+df_mod$Collection.Sample <- as.character(df_mod$Collection.Sample)
 #Booket..Clock.Time should be Time
 df_mod$Booket..Clock.Time <-hm(df_mod$Booket..Clock.Time)
 #MEMs..Clock.Time should be Time
@@ -80,10 +85,16 @@ df_mod$MEMs..Clock.Time <- hm(df_mod$MEMs..Clock.Time)
 #Sleep.Diary.reported.wake.time should be Time 
 df_mod$Sleep.Diary.reported.wake.time <- hm(df_mod$Sleep.Diary.reported.wake.time)
 
+
 #Sleep.Diary.reported.wake.time carried down for each SubjectID DAYNUMB combination
 df_mod <- df_mod %>%
+  arrange(
+    SubjectID,
+    DAYNUMB,
+    suppressWarnings(as.integer(Collection.Sample))
+  ) %>%
   group_by(SubjectID, DAYNUMB) %>%
-  fill(Sleep.Diary.reported.wake.time, .direction = "down") %>%
+  tidyr::fill(Sleep.Diary.reported.wake.time, .direction = "down") %>%
   ungroup()
 
 ```
@@ -96,30 +107,27 @@ df_mod <- df_mod %>%
 #MEMs..Sample.interval.Decimal.Time..mins. integer representation of previous variable aka number of minutes from waking electronic stamp.
 
 ```{r}
+# Convert times to minutes since midnight
+df_mod$booklet_minutes <- lubridate::hour(df_mod$Booket..Clock.Time) * 60 +
+                          lubridate::minute(df_mod$Booket..Clock.Time)
+
+df_mod$cap_minutes <- lubridate::hour(df_mod$MEMs..Clock.Time) * 60 +
+                      lubridate::minute(df_mod$MEMs..Clock.Time)
+
+df_mod$wake_minutes <- lubridate::hour(df_mod$Sleep.Diary.reported.wake.time) * 60 +
+                       lubridate::minute(df_mod$Sleep.Diary.reported.wake.time)
+
+
 #Creating new variables capturing elapsed time between booklet and wake time AND cap and wake time respectively
-df_mod$cap_interval_mins <- as.numeric(df_mod$MEMs..Clock.Time - df_mod$Sleep.Diary.reported.wake.time, units = "mins")
-df_mod$booklet_interval_mins <- as.numeric(df_mod$Booket..Clock.Time - df_mod$Sleep.Diary.reported.wake.time, units = "mins")
-```
+df_mod$cap_interval_minutes <-
+  df_mod$cap_minutes - df_mod$wake_minutes
 
-
-Check each SubjectID has proper number of samples
-```{r}
-summary <- df_mod %>% group_by(SubjectID, DAYNUMB) %>% summarize(n = n()) %>% ungroup()
-#Subject 3029 has 12 observations on day 3 - let's see what's going on
-problem_subj <- filter(df_mod, SubjectID == 3029)
-
-#Assign new DAYNUMB based on date for this subject
-df_mod <- df_mod %>%
-  mutate(
-    DAYNUMB = case_when(
-      SubjectID == 3029 & Collection.Date == "2018-10-07" ~ 1,
-      SubjectID == 3029 & Collection.Date == "2018-10-10" ~ 2,
-      SubjectID == 3029 & Collection.Date == "2018-10-12" ~ 3,
-      TRUE ~ DAYNUMB
-    )
-  ) %>% ungroup()
+df_mod$booklet_interval_minutes <-
+  df_mod$booklet_minutes - df_mod$wake_minutes
 
 ```
+
+
 
 ```{r}
 glimpse(df_mod)
@@ -127,7 +135,7 @@ glimpse(df_mod)
 
 Save processed data
 ```{r}
-#write.xlsx(df_mod, "/Users/austinra/Documents/MS BIOS/Spring 2026/BIOS 6624/Project 0/Data Processed/Project0_ProcessedData.xlsx")
+#write.xlsx(df_mod, "/Users/austinra/BIOS6624/Project 0/Data Processed/Project0_ProcessedData.xlsx")
 ```
 
 Table One
@@ -193,13 +201,13 @@ table(na_booklettime$booklet_interval_mins, useNA = "ifany")
 Removing observations with missing cap_interval_mins or missing booklet_interval_mins from df_mod for this part of the analysis
 ```{r}
 #Drop all observations where either of these values are missing
-df_q1 <- filter(df_mod, !is.na(cap_interval_mins) & !is.na(booklet_interval_mins))
+df_q1 <- filter(df_mod, !is.na(cap_interval_minutes) & !is.na(booklet_interval_minutes))
 ```
 
 
 ```{r}
 #Scatter plot of cap time (minutes) from waking up and booklet time (minutes) since waking up (continuous)
-ggplot(df_q1, aes(x = cap_interval_mins, y = booklet_interval_mins)) +
+ggplot(df_q1, aes(x = cap_interval_minutes, y = booklet_interval_minutes)) +
   geom_point(alpha = 0.6) +
   labs(
     x = "Cap interval (minutes since wake)",
@@ -216,7 +224,7 @@ ggplot(df_q1, aes(x = cap_interval_mins, y = booklet_interval_mins)) +
 
 ```{r}
 #Closer look at the bottom left corner of the graph - 
-ggplot(df_q1, aes(x = cap_interval_mins, y = booklet_interval_mins)) +
+ggplot(df_q1, aes(x = cap_interval_minutes, y = booklet_interval_minutes)) +
   geom_point(alpha = 0.6) +
   labs(
     x = "Cap interval (minutes since wake)",
@@ -226,14 +234,14 @@ ggplot(df_q1, aes(x = cap_interval_mins, y = booklet_interval_mins)) +
   geom_abline(slope = 1, intercept = 0, color = "blue") +
   theme_minimal() +
   coord_equal()+ 
-  coord_cartesian(xlim = c(min(df_q1$cap_interval_mins),50),
-                  ylim = c(min(df_q1$booklet_interval_mins), 50))
+  coord_cartesian(xlim = c(min(df_q1$cap_interval_minutes),50),
+                  ylim = c(min(df_q1$booklet_interval_minutes), 50))
 ```
 
 
 Find the difference between recorded sampling time and recorded cap time, plot this distribution
 ```{r}
-df_q1$booklet_cap_difference <- df_q1$booklet_interval_mins - df_q1$cap_interval_mins
+df_q1$booklet_cap_difference <- df_q1$booklet_interval_minutes - df_q1$cap_interval_minutes
 mean(df_q1$booklet_cap_difference)
 ggplot(df_q1,
        aes(booklet_cap_difference)) +
@@ -257,7 +265,7 @@ ggplot(df_q1,
 
 Comparing booklet and electric monitoring cap using a mixed model:
 ```{r}
-q1.lmm <- lmer(booklet_interval_mins ~ cap_interval_mins + (1|SubjectID), 
+q1.lmm <- lmer(booklet_interval_minutes ~ cap_interval_minutes + (1|SubjectID), 
                data = df_q1)
 summary(q1.lmm)
 confint(q1.lmm)
@@ -281,7 +289,7 @@ df_q1 <- df_q1 %>% mutate(booklet_fitted = fitted(q1.lmm))
 
 ggplot(df_q1,
        aes(x = booklet_fitted,
-           y = booklet_interval_mins)) +
+           y = booklet_interval_minutes)) +
   geom_point(alpha = 0.6) +
   geom_abline(slope = 1, intercept = 0, color = "blue", linewidth = 1) +
   labs(
@@ -301,8 +309,85 @@ Are subjects adhering accurately to the +30 min and +10 hour sampling times requ
 Adherence window
 30 minutes (Collection 2) and 10 hours (Collection 4) after waking
 One analysis for good adherence = 7.5 minutes before or after (inclusive) - proportion of those who met this
-One analysis for adequate adherence = 15 minutes before or after (inclusive) - proportion of those who met this 
+One analysis for adequate adherence = 15 minutes before or after (inclusive) - proportion of those who met this #Create collection time var to grab samples we're interested in and booklet and cap deviation times from those collection windows
+```{r}
+dftest <- df_mod %>%
+  filter(Collection.Sample %in% c("2","4")) %>%
+  mutate(
+    collection_time = case_when(
+      as.character(Collection.Sample) == '2' ~ 30,
+      as.character(Collection.Sample) == '4' ~ 60*10,
+      TRUE ~ NA
+    ),
 
+    booklet_dev_mins =
+      (as.numeric(Booket..Clock.Time, "seconds") -
+       as.numeric(collection_time, "seconds")) / 60,
+
+    cap_dev_mins =
+      (as.numeric(MEMs..Clock.Time, "seconds") -
+       as.numeric(collection_time, "seconds")) / 60
+  )
+
+```
+
+
+```{r}
+#Create variables checking for good and adequate adherence (inclusive)
+df <- df %>%
+  mutate(
+    booklet_good = abs(booklet_dev_mins) <= 7.5,
+    booklet_adequate = abs(booklet_dev_mins) <= 15,
+    cap_good = abs(cap_dev_mins) <= 7.5,
+    cap_adequate = abs(cap_dev_mins) <= 15
+  )
+```
+
+Cap Adherence Deviation Visualization
+```{r}
+ggplot(df %>% filter(!is.na(cap_dev_mins)),
+       aes(x = cap_dev_mins)) +
+  geom_histogram(binwidth = 10, fill = "steelblue") +
+  geom_vline(xintercept = 0) +
+  geom_vline(xintercept = c(-7.5, 7.5), linetype = "dashed") +
+  geom_vline(xintercept = c(-15, 15), linetype = "dotted") +
+  theme_minimal() +
+  labs(
+    x = "Cap deviation from target (minutes)",
+    y = "Count",
+    title = "Cap Sampling Deviations"
+  )
+```
+Booklet Adherence Deviation
+```{r}
+ggplot(df %>% filter(!is.na(booklet_dev_mins)),
+       aes(x = booklet_dev_mins)) +
+  geom_histogram(binwidth = 10, fill = "steelblue") +
+  geom_vline(xintercept = 0) +
+  geom_vline(xintercept = c(-7.5, 7.5), linetype = "dashed") +
+  geom_vline(xintercept = c(-15, 15), linetype = "dotted") +
+  theme_minimal() +
+  labs(
+    x = "Booklet deviation from target (minutes)",
+    y = "Count",
+    title = "Booklet Sampling Deviations"
+  )
+
+```
+
+```{r}
+sample_props <- df %>%
+  filter(Collection.Sample %in% c(2, 4)) %>%  
+  group_by(Collection.Sample) %>%
+  summarize(
+    cap_good = mean(cap_good, na.rm = TRUE),
+    cap_adequate = mean(cap_adequate, na.rm = TRUE),
+    booklet_good = mean(booklet_good, na.rm = TRUE),
+    booklet_adequate = mean(booklet_adequate, na.rm = TRUE),
+    n_samples = n()
+  )
+
+kable(sample_props)
 Wake time will be sleep diary reported wake time
 
 Remember booklet_sample_interval is the amount of time between booklet sample and recorded wait time
@@ -312,13 +397,32 @@ Adequate adherence would be 15 to 45 for 30 minutes and 545 to 615 for 10 hours
 Cap and booklet adherence: 
 ```{r}
 #Filter to just Collection.Sample == 2 and Collection.Sample == 4
-df_q2 <- filter(df_mod, Collection.Sample == 2 | Collection.Sample == 4)
-summary(df_q2)
-#33 missing caplet time since wake, 19 missing booklet time since wake
+df_q2 <- df_mod %>%
+  filter(as.character(Collection.Sample) %in% c("2", "4"))
 
+table(df_q2$Collection.Sample, df_q2$booklet_interval_minutes, useNA = "ifany")
+# 6 MISSING BOOKLET for 30 mins, 13 for 600 mins
 #Create collection time var to grab samples we're interested in and booklet and cap deviation times from those 
+table(df_q2$Collection.Sample, df_q2$cap_interval_minutes, useNA = "ifany")
+#23 missing cao for 30, 10 fir 600
+df_q2_book <- filter(df_q2, !is.na(Booket..Clock.Time))
+df_q2_cap <- filter(df_q2, !is.na(MEMs..Clock.Time))
 
+df_q2_cap$cap_dev <- ifelse(df_q2_cap$Collection.Sample == "2", df_q2_cap$cap_interval_minutes - 30, df_q2_cap$cap_interval_minutes - 600)
+
+df_q2_book$book_dev <- ifelse(df_q2_book$Collection.Sample == "2", df_q2_book$booklet_interval_minutes - 30, df_q2_book$booklet_interval_minutes - 600)
+
+df_q2_cap <- df_q2_cap %>%
+  mutate(
+    cap_good = if_else(
+      as.character(Collection.Sample) == "2",
+      cap_interval_minutes >= 22.5 & cap_interval_minutes <= 37.5,
+      cap_interval_minutes >= 592.5 & cap_interval_minutes <= 607.5
+    )
+  )
+table(df_q2_cap$cap_good)
 ```
+
 
 Cap Adherence Deviation Visualization
 ```{r}
@@ -377,12 +481,6 @@ ggplot(df_q2 %>% filter(!is.na(booklet_dev)),
   )
 ```
 
-
-```{r}
-
-#Summary Table describing Adherence by Sample for Booklet and Caps
-
-```
 
 
 Question 3:
