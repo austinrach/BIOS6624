@@ -297,42 +297,117 @@ Adherence window
 30 minutes (Collection 2) and 10 hours (Collection 4) after waking
 One analysis for good adherence = 7.5 minutes before or after (inclusive) - proportion of those who met this
 One analysis for adequate adherence = 15 minutes before or after (inclusive) - proportion of those who met this #Create collection time var to grab samples we're interested in and booklet and cap deviation times from those collection windows
+
 ```{r}
-dftest <- df_mod %>%
-  filter(Collection.Sample %in% c("2","4")) %>%
+df_q2 <- filter(df_mod, Collection.Sample %in% c("2","4"))
+
+df_q2 <- df_q2 %>%
   mutate(
-    collection_time = case_when(
-      as.character(Collection.Sample) == '2' ~ 30,
-      as.character(Collection.Sample) == '4' ~ 60*10,
+    cap_good = case_when(
+      Collection.Sample == "2" ~ between(cap_interval_mins, 22.5, 37.5),
+      Collection.Sample == "4" ~ between(cap_interval_mins, 592.5, 607.5),
       TRUE ~ NA
     ),
 
-    booklet_dev_mins =
-      (as.numeric(Booket..Clock.Time, "seconds") -
-       as.numeric(collection_time, "seconds")) / 60,
+    cap_adequate = case_when(
+      Collection.Sample == "2" ~ between(cap_interval_mins, 15, 45),
+      Collection.Sample == "4" ~ between(cap_interval_mins, 585, 615),
+      TRUE ~ NA
+    ),
+    
+    booklet_good = case_when(
+      Collection.Sample == "2" ~ between(booklet_interval_mins, 22.5, 37.5),
+      Collection.Sample == "4" ~ between(booklet_interval_mins, 592.5, 607.5),
+      TRUE ~ NA
+    ),
 
-    cap_dev_mins =
-      (as.numeric(MEMs..Clock.Time, "seconds") -
-       as.numeric(collection_time, "seconds")) / 60
+    booklet_adequate = case_when(
+      Collection.Sample == "2" ~ between(booklet_interval_mins, 15, 45),
+      Collection.Sample == "4" ~ between(booklet_interval_mins, 585, 615),
+      TRUE ~ NA
+    )
   )
 
 ```
 
 
+Tracking adherence
 ```{r}
-#Create variables checking for good and adequate adherence (inclusive)
-df <- df %>%
+adherence_summary <- df_q2 %>%
+  group_by(Collection.Sample) %>%
+  summarise(
+    N = n(),
+
+    #cap
+    cap_good_n = sum(cap_good == TRUE, na.rm = TRUE),
+    cap_adequate_n = sum(cap_adequate == TRUE, na.rm = TRUE),
+    cap_missing_n = sum(is.na(cap_interval_mins)),
+
+    #booklet
+    booklet_good_n = sum(booklet_good == TRUE, na.rm = TRUE),
+    booklet_adequate_n = sum(booklet_adequate == TRUE, na.rm = TRUE),
+    booklet_missing_n = sum(is.na(booklet_interval_mins)),
+
+    .groups = "drop"
+  ) %>%
   mutate(
-    booklet_good = abs(booklet_dev_mins) <= 7.5,
-    booklet_adequate = abs(booklet_dev_mins) <= 15,
-    cap_good = abs(cap_dev_mins) <= 7.5,
-    cap_adequate = abs(cap_dev_mins) <= 15
+    cap_good_pct = round(100 * cap_good_n / (N - cap_missing_n), 1),
+    cap_adequate_pct = round(100 * cap_adequate_n / (N - cap_missing_n), 1),
+
+    booklet_good_pct = round(100 * booklet_good_n / (N - booklet_missing_n), 1),
+    booklet_adequate_pct = round(100 * booklet_adequate_n / (N - booklet_missing_n), 1)
   )
+
+#Create a tidy table for report/presentation
+adherence_table <- adherence_summary %>%
+  mutate(Collection.Sample = recode(Collection.Sample,
+                                    "2" = "30 min",
+                                    "4" = "10 hr")) %>%
+  rename(
+    `Sample Time` = Collection.Sample,
+    `N` = N,
+    `Cap Missing (n)` = cap_missing_n,
+    `Booklet Missing (n)` = booklet_missing_n,
+    `Cap Sample Good Adherence (%)` = cap_good_pct,
+    `Cap Sample Adequate Adherence (%)` = cap_adequate_pct,
+    `Booklet Sample Good Adherence (%)` = booklet_good_pct,
+    `Booklet Sample Adequate Adherence (%)` = booklet_adequate_pct
+  ) %>%
+  dplyr::select(
+    `Sample Time`,
+    `N`,
+    `Cap Missing (n)`,
+    `Cap Sample Good Adherence (%)`,
+    `Cap Sample Adequate Adherence (%)`,
+    `Booklet Missing (n)`,
+    `Booklet Sample Good Adherence (%)`,
+    `Booklet Sample Adequate Adherence (%)`
+  )
+
+kable(adherence_table, caption = "Cap and Booklet Adherence by Collection Sample")
 ```
+
+Calculate deviation (minutes) by sample for visualization
+```{r}
+df_q2 <- df_q2 %>%
+  mutate(
+    target_mins = case_when(
+      Collection.Sample == "2" ~ 30,
+      Collection.Sample == "4" ~ 60*10,
+      TRUE ~ NA_real_
+    ),
+    cap_dev_mins = cap_interval_mins - target_mins,
+    booklet_dev_mins = booklet_interval_mins - target_mins
+  )
+
+```
+
+
+
 
 Cap Adherence Deviation Visualization
 ```{r}
-ggplot(df %>% filter(!is.na(cap_dev_mins)),
+ggplot(df_q2 %>% filter(!is.na(cap_dev_mins)),
        aes(x = cap_dev_mins)) +
   geom_histogram(binwidth = 10, fill = "steelblue") +
   geom_vline(xintercept = 0) +
@@ -347,7 +422,7 @@ ggplot(df %>% filter(!is.na(cap_dev_mins)),
 ```
 Booklet Adherence Deviation
 ```{r}
-ggplot(df %>% filter(!is.na(booklet_dev_mins)),
+ggplot(df_q2 %>% filter(!is.na(booklet_dev_mins)),
        aes(x = booklet_dev_mins)) +
   geom_histogram(binwidth = 10, fill = "steelblue") +
   geom_vline(xintercept = 0) +
@@ -362,86 +437,7 @@ ggplot(df %>% filter(!is.na(booklet_dev_mins)),
 
 ```
 
-```{r}
-sample_props <- df %>%
-  filter(Collection.Sample %in% c(2, 4)) %>%  
-  group_by(Collection.Sample) %>%
-  summarize(
-    cap_good = mean(cap_good, na.rm = TRUE),
-    cap_adequate = mean(cap_adequate, na.rm = TRUE),
-    booklet_good = mean(booklet_good, na.rm = TRUE),
-    booklet_adequate = mean(booklet_adequate, na.rm = TRUE),
-    n_samples = n()
-  )
 
-kable(sample_props)
-Wake time will be sleep diary reported wake time
-
-Remember booklet_sample_interval is the amount of time between booklet sample and recorded wait time
-So good adherence would be 22.5 to 37.5 for 30 minutes and 592.5 to 607.5 for 10 hours
-Adequate adherence would be 15 to 45 for 30 minutes and 545 to 615 for 10 hours
-
-Cap and booklet adherence: 
-```{r}
-#Filter to just Collection.Sample == 2 and Collection.Sample == 4
-df_q2 <- df_mod %>%
-  filter(as.character(Collection.Sample) %in% c("2", "4"))
-
-table(df_q2$Collection.Sample, df_q2$booklet_interval_minutes, useNA = "ifany")
-# 6 MISSING BOOKLET for 30 mins, 13 for 600 mins
-#Create collection time var to grab samples we're interested in and booklet and cap deviation times from those 
-table(df_q2$Collection.Sample, df_q2$cap_interval_minutes, useNA = "ifany")
-#23 missing cao for 30, 10 fir 600
-df_q2_book <- filter(df_q2, !is.na(Booket..Clock.Time))
-df_q2_cap <- filter(df_q2, !is.na(MEMs..Clock.Time))
-
-df_q2_cap$cap_dev <- ifelse(df_q2_cap$Collection.Sample == "2", df_q2_cap$cap_interval_minutes - 30, df_q2_cap$cap_interval_minutes - 600)
-
-df_q2_book$book_dev <- ifelse(df_q2_book$Collection.Sample == "2", df_q2_book$booklet_interval_minutes - 30, df_q2_book$booklet_interval_minutes - 600)
-
-df_q2_cap <- df_q2_cap %>%
-  mutate(
-    cap_good = if_else(
-      as.character(Collection.Sample) == "2",
-      cap_interval_minutes >= 22.5 & cap_interval_minutes <= 37.5,
-      cap_interval_minutes >= 592.5 & cap_interval_minutes <= 607.5
-    )
-  )
-table(df_q2_cap$cap_good)
-```
-
-
-Cap Adherence Deviation Visualization
-```{r}
-ggplot(df_q2 %>% filter(!is.na(cap_dev)),
-       aes(x = cap_dev)) +
-  geom_histogram(binwidth = 10, fill = "steelblue") +
-  geom_vline(xintercept = 0) +
-  geom_vline(xintercept = c(-7.5, 7.5), linetype = "dashed") +
-  geom_vline(xintercept = c(-15, 15), linetype = "dotted") +
-  theme_minimal() +
-  labs(
-    x = "Cap deviation from target (minutes)",
-    y = "Count",
-    title = "Cap Sampling Deviations"
-  )
-```
-Booklet Adherence Deviation
-```{r}
-ggplot(df_q2 %>% filter(!is.na(booklet_dev)),
-       aes(x = booklet_dev)) +
-  geom_histogram(binwidth = 10, fill = "steelblue") +
-  geom_vline(xintercept = 0) +
-  geom_vline(xintercept = c(-7.5, 7.5), linetype = "dashed") +
-  geom_vline(xintercept = c(-15, 15), linetype = "dotted") +
-  theme_minimal() +
-  labs(
-    x = "Booklet deviation from target (minutes)",
-    y = "Count",
-    title = "Booklet Sampling Deviations"
-  )
-
-```
 Let's see whether cap deviations vary by sample:
 ```{r}
 ggplot(df_q2 %>% filter(!is.na(cap_dev)),
@@ -466,6 +462,35 @@ ggplot(df_q2 %>% filter(!is.na(booklet_dev)),
     y = "Booklet deviation (minutes)",
     title = "Booklet Deviations by Sample"
   )
+```
+
+Visualize cap and booklet times together
+```{r}
+dfq2_long <- df_q2 %>%
+  pivot_longer(
+    cols = c(cap_dev_mins, booklet_dev_mins),
+    names_to = "method",
+    values_to = "dev_mins"
+  ) %>%
+  filter(!is.na(dev_mins)) %>%  
+  mutate(
+    method = recode(method,
+                    cap_dev_mins = "Cap",
+                    booklet_dev_mins = "Booklet"),
+    Collection.Sample = factor(Collection.Sample)
+  )
+
+ggplot(dfq2_long, aes(Collection.Sample, dev_mins, fill = method)) +
+  geom_boxplot(position = position_dodge(width = 0.75)) +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  theme_minimal(base_size = 14) +
+  labs(
+    x = "Sample",
+    y = "Deviation (minutes)",
+    title = "Cap and Booklet Deviations by Sample",
+    fill = "Method"
+  )
+
 ```
 
 
