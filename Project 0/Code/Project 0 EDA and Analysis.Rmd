@@ -108,22 +108,22 @@ df_mod <- df_mod %>%
 
 ```{r}
 # Convert times to minutes since midnight
-df_mod$booklet_minutes <- lubridate::hour(df_mod$Booket..Clock.Time) * 60 +
+df_mod$booklet_mins <- lubridate::hour(df_mod$Booket..Clock.Time) * 60 +
                           lubridate::minute(df_mod$Booket..Clock.Time)
 
-df_mod$cap_minutes <- lubridate::hour(df_mod$MEMs..Clock.Time) * 60 +
+df_mod$cap_mins <- lubridate::hour(df_mod$MEMs..Clock.Time) * 60 +
                       lubridate::minute(df_mod$MEMs..Clock.Time)
 
-df_mod$wake_minutes <- lubridate::hour(df_mod$Sleep.Diary.reported.wake.time) * 60 +
+df_mod$wake_mins <- lubridate::hour(df_mod$Sleep.Diary.reported.wake.time) * 60 +
                        lubridate::minute(df_mod$Sleep.Diary.reported.wake.time)
 
 
 #Creating new variables capturing elapsed time between booklet and wake time AND cap and wake time respectively
-df_mod$cap_interval_minutes <-
-  df_mod$cap_minutes - df_mod$wake_minutes
+df_mod$cap_interval_mins <-
+  df_mod$cap_mins - df_mod$wake_mins
 
-df_mod$booklet_interval_minutes <-
-  df_mod$booklet_minutes - df_mod$wake_minutes
+df_mod$booklet_interval_mins <-
+  df_mod$booklet_mins - df_mod$wake_mins
 
 ```
 
@@ -188,7 +188,7 @@ ggplot(df_mod %>% filter(!is.na(booklet_interval_mins)),
     title = "Booklet Sampling Interval Distribution"
   )
 
-#0 book times with negative values
+#2 book times with negative values
 negative_booklettime <- df_mod %>% filter(!is.na(booklet_interval_mins) & booklet_interval_mins < 0)
 table(negative_booklettime$booklet_interval_mins, useNA = "ifany")
 
@@ -201,13 +201,13 @@ table(na_booklettime$booklet_interval_mins, useNA = "ifany")
 Removing observations with missing cap_interval_mins or missing booklet_interval_mins from df_mod for this part of the analysis
 ```{r}
 #Drop all observations where either of these values are missing
-df_q1 <- filter(df_mod, !is.na(cap_interval_minutes) & !is.na(booklet_interval_minutes))
+df_q1 <- filter(df_mod, !is.na(cap_interval_mins) & !is.na(booklet_interval_mins))
 ```
 
 
 ```{r}
 #Scatter plot of cap time (minutes) from waking up and booklet time (minutes) since waking up (continuous)
-ggplot(df_q1, aes(x = cap_interval_minutes, y = booklet_interval_minutes)) +
+ggplot(df_q1, aes(x = cap_interval_mins, y = booklet_interval_mins)) +
   geom_point(alpha = 0.6) +
   labs(
     x = "Cap interval (minutes since wake)",
@@ -221,28 +221,16 @@ ggplot(df_q1, aes(x = cap_interval_minutes, y = booklet_interval_minutes)) +
 
 
 
-
+Find the difference between recorded sampling time and recorded cap time and print summary statistics
 ```{r}
-#Closer look at the bottom left corner of the graph - 
-ggplot(df_q1, aes(x = cap_interval_minutes, y = booklet_interval_minutes)) +
-  geom_point(alpha = 0.6) +
-  labs(
-    x = "Cap interval (minutes since wake)",
-    y = "Booklet interval (minutes since wake)",
-    title = "Cap vs Booklet Minutes from Waking"
-  ) +
-  geom_abline(slope = 1, intercept = 0, color = "blue") +
-  theme_minimal() +
-  coord_equal()+ 
-  coord_cartesian(xlim = c(min(df_q1$cap_interval_minutes),50),
-                  ylim = c(min(df_q1$booklet_interval_minutes), 50))
+df_q1$booklet_cap_difference <- df_q1$booklet_interval_mins - df_q1$cap_interval_mins
+summary(df_q1$booklet_cap_difference)
 ```
+We have no NA values, as expected, and booklet time is often recorded earlier than cap time.
 
 
-Find the difference between recorded sampling time and recorded cap time, plot this distribution
+Plot distribution of the difference between booklet sampling time and cap sampling time
 ```{r}
-df_q1$booklet_cap_difference <- df_q1$booklet_interval_minutes - df_q1$cap_interval_minutes
-mean(df_q1$booklet_cap_difference)
 ggplot(df_q1,
        aes(booklet_cap_difference)) +
   geom_histogram(binwidth = 10, fill = "steelblue", alpha = 0.8) +
@@ -260,17 +248,16 @@ ggplot(df_q1,
     title = "Difference in Sampling Interval Distribution"
   )
 ```
-
-
+Booklet and Cap Time fall pretty close together with some extreme outliers representing large differences between recorded booklet time and cap time.
 
 Comparing booklet and electric monitoring cap using a mixed model:
 ```{r}
-q1.lmm <- lmer(booklet_interval_minutes ~ cap_interval_minutes + (1|SubjectID), 
+q1.lmm <- lmer(booklet_interval_mins ~ cap_interval_mins + (1|SubjectID), 
                data = df_q1)
 summary(q1.lmm)
 confint(q1.lmm)
 ```
-For every 1 minute increase in recorded cap time, recorded booklet time increases by 0.995 minutes (95% CI: 0.981, 1.001, p-value: <0.0001). This suggests there is strong agreement between recorded cap time and recorded booklet time. The intercept suggests there is bias though, subjects recorded sample collection in their booklet about 6.507 (95% CI: -12.257, -0.798, p-value: 0.029) minutes earlier than recorded sample collection by the electronic cap. 
+For every 1 minute increase in recorded cap time, recorded booklet time increases by 0.995 minutes (95% CI: 0.981, 1.008, p-value: <0.0001). This suggests there is strong agreement between recorded cap time and recorded booklet time. The intercept suggests there is bias though, subjects recorded sample collection in their booklet about 6.508 (95% CI: -12.259, -0.799, p-value: 0.029) minutes earlier than recorded sample collection by the electronic cap. 
 
 
 Visualizing fit
@@ -283,22 +270,22 @@ qqline(residuals(q1.lmm))
 
 The residuals are fairly close to 0 for most of the fitted values but there are a few observations with very large negative residuals. The qqplot shows the model is doing a good job fitting the majority of the data but there is strong deviation in the tails with some large negative and positive values. 
 
-Visualizing fitted vs observed values
+Visualizing fitted vs observed values with identity line and fitted line
 ```{r}
 df_q1 <- df_q1 %>% mutate(booklet_fitted = fitted(q1.lmm))
 
-ggplot(df_q1,
-       aes(x = booklet_fitted,
-           y = booklet_interval_minutes)) +
+ggplot(df_q1, aes(x = cap_interval_mins, y = booklet_interval_mins)) +
   geom_point(alpha = 0.6) +
-  geom_abline(slope = 1, intercept = 0, color = "blue", linewidth = 1) +
+  geom_line(aes(y = booklet_fitted), color = "red", linewidth = 1) +
   labs(
-    x = "Fitted booklet interval (minutes)",
-    y = "Observed booklet interval (minutes)",
-    title = "Observed vs Fitted Booklet Sampling Times"
+    x = "Cap interval (minutes since wake)",
+    y = "Booklet interval (minutes since wake)",
+    title = "Cap vs Booklet Minutes from Waking"
   ) +
-  coord_equal() +
-  theme_minimal(base_size = 14)
+  geom_abline(slope = 1, intercept = 0, color = "blue") +
+  theme_minimal() +
+  coord_equal()
+
 
 ```
 
