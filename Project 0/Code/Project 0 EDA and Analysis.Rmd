@@ -53,7 +53,7 @@ df %>%
 ```
 Check each SubjectID has proper number of samples
 ```{r}
-problem_check <- df %>% group_by(SubjectID, DAYNUMB) %>% summarize(n = n()) %>% filter(n > 4)
+problem_check <- df %>% group_by(SubjectID, DAYNUMB) %>% summarize(n = n()) 
 
 #Subject 3029 has 12 observations on day 3, assign new DAYNUMB based on date for this subject
 df_mod <- df %>%
@@ -528,16 +528,37 @@ Outliers: Check no cortisol > 80, check no DHEA >5.205
 #One outlier with cortisol value > 80 - remove this
 df_q3 <- filter(df_mod, Cortisol..nmol.L. < 80)
 
-#DHEA 
+#DHEA investigation of upper limit lab values
 x <- filter(df_q3,DHEA..nmol.L. == 5.205)
 
-#SubjectID 3037 needs to be be removed as it is at the upper limit multiple times, suggesting something is wrong
+#SubjectID 3037 needs to be be removed as it is at the upper limit multiple times, suggesting something is wrong with this patient
 df_q3 <- filter(df_q3, SubjectID != 3037)
 
-# Remove DHEA levels that are at the lab maximum
-df_q3 <- filter(df_q3,DHEA..nmol.L. < 5.205000)
-
 ```
+
+
+
+Visualization of Subject 3024 strange behavior - overall this is fine, we'll leave it in the analysis
+```{r}
+ggplot((df_q3 %>% filter(SubjectID == 3024)), aes(x = cap_interval_mins, y = DHEA..nmol.L.)) +
+  geom_line() +
+  theme_minimal(base_size = 14) +
+  labs(
+    x = "Minutes since waking (Book)",
+    y = "DHEA (nmol/L)",
+    title = "DHEA Over Time Since Waking"
+  )
+
+ggplot((df_q3 %>% filter(SubjectID == 3024)), aes(x = cap_interval_mins, y = Cortisol..nmol.L.)) +
+  geom_line() +
+  theme_minimal(base_size = 14) +
+  labs(
+    x = "Minutes since waking (Book)",
+    y = "Cortisol (nmol/L)",
+    title = "Cortisol Over Time Since Waking"
+  )
+```
+
 
 
 ```{r}
@@ -560,7 +581,7 @@ summary(df_q3$DHEA..nmol.L.)
 summary(df_q3$Cortisol..nmol.L.)
 ```
 
-Significant outlier of 37, let's remove this
+Significant outlier of 37, leaving it in the analysis but noting it's strange
 ```{r}
 ggplot(df_q3, aes(x = cap_interval_mins, y = Cortisol..nmol.L., group = SubjectID, color = factor(SubjectID))) +
   geom_line() +
@@ -572,7 +593,8 @@ ggplot(df_q3, aes(x = cap_interval_mins, y = Cortisol..nmol.L., group = SubjectI
   )
 ```
 
-Subject 3024 has elevated DHEA levels
+
+
 ```{r}
 ggplot(df_q3, aes(x = cap_interval_mins, y = DHEA..nmol.L., group = SubjectID, color = factor(SubjectID))) +
   geom_line() +
@@ -597,7 +619,7 @@ ggplot(df_q3, aes(x = cap_interval_mins, y = DHEA..nmol.L., group = SubjectID, c
   coord_cartesian(xlim = c(0, 120))
 
 ```
-Changepoint at 30 might make sense let's investigate further
+Changepoint at 30 might not make sense let's investigate further
 
 ```{r}
 dhea_peak_bysubj <- df_q3 %>%
@@ -609,8 +631,22 @@ dhea_peak_bysubj <- df_q3 %>%
     peak_dhea = DHEA..nmol.L.,
     .groups = "drop"
   )
+dhea_peak_by_subj_day <- df_q3 %>%
+  filter(!is.na(DHEA..nmol.L.), !is.na(booklet_interval_mins), !is.na(DAYNUMB)) %>%
+  group_by(SubjectID, DAYNUMB) %>%
+  arrange(desc(DHEA..nmol.L.), booklet_interval_mins) %>%  # highest DHEA, then earliest time
+  slice(1) %>%
+  ungroup() %>%
+  transmute(
+    SubjectID,
+    DAYNUMB,
+    peak_minute = booklet_interval_mins,
+    peak_dhea   = DHEA..nmol.L.
+  )
 
-hist(dhea_peak_bysubj$peak_minute, main = "Histogram of Peak DHEA Timing (Booklet Minutes since Waking)")
+
+hist(dhea_peak_by_subj$peak_minute, main = "Histogram of Peak DHEA Timing (Booklet Minutes since Waking)")
+hist(dhea_peak_by_subj_day$peak_minute, main = "Histogram of Peak DHEA Timing (Booklet Minutes since Waking)")
 ```
 
 
@@ -618,6 +654,14 @@ hist(dhea_peak_bysubj$peak_minute, main = "Histogram of Peak DHEA Timing (Bookle
 Create variable for 30 minute knot and let's proceed with logging DHEA and Cortisol
 
 ```{r}
+#Let's verify knot - 34 mins is our mean but the literature suggests 30 minutes so let's stick with that
+mean(
+  df_q3 %>%
+    filter(Collection.Sample == "2") %>%
+    pull(booklet_interval_mins),
+  na.rm = TRUE
+)
+
 #Modified from BIOS 6643 code- changepoint creation
 df_q3 <- df_q3 %>%
   mutate(
@@ -638,7 +682,13 @@ q3_cortisol.lmm <- lmer(
 )
 
 summary(q3_cortisol.lmm)
+exp(fixef(q3_cortisol.lmm))
+exp(confint(q3_cortisol.lmm))
 ```
+
+
+
+
 ```{r}
 cortisol_table <- tidy(q3_cortisol.lmm, effects = "fixed", conf.int = TRUE)
 cortisol_table <- cortisol_table %>%
@@ -664,7 +714,7 @@ kable(cortisol_table_exp, digits = 3,
 ```
 
 
-Piecewise linear regression (lmm w random slope for subject) for DHEA
+Linear regression (lmm w random slope for subject) for DHEA
 ```{r}
 q3_dhea.lmm <- lmer(
   log_dhea ~ booklet_interval_mins + (1 | SubjectID),
