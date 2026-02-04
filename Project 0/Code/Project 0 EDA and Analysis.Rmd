@@ -752,7 +752,7 @@ dhea_peak_by_subj_day <- df_q3 %>%
   )
 
 
-hist(dhea_peak_by_subj$peak_minute, main = "Histogram of Peak DHEA Timing (Booklet Minutes since Waking)")
+hist(dhea_peak_bysubj$peak_minute, main = "Histogram of Peak DHEA Timing (Booklet Minutes since Waking)")
 hist(dhea_peak_by_subj_day$peak_minute, main = "Histogram of Peak DHEA Timing (Booklet Minutes since Waking)")
 ```
 
