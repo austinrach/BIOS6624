@@ -17,6 +17,7 @@ library(kableExtra)
 library(segmented)
 library(tableone)
 library(ggplot2)
+library(broom.mixed)
 library(stringr)
 ```
 
@@ -440,8 +441,8 @@ ggplot(df_q2 %>% filter(!is.na(booklet_dev_mins)),
 
 Let's see whether cap deviations vary by sample:
 ```{r}
-ggplot(df_q2 %>% filter(!is.na(cap_dev)),
-       aes(factor(Collection.Sample), cap_dev)) +
+ggplot(df_q2 %>% filter(!is.na(cap_dev_minutes)),
+       aes(factor(Collection.Sample), cap_dev_minutes)) +
   geom_boxplot() +
   theme_minimal(base_size = 14) +
   labs(
@@ -496,54 +497,6 @@ ggplot(dfq2_long, aes(Collection.Sample, dev_mins, fill = method)) +
 
 
 Question 3:
-Spaghetti plot to determine patterns
-Piecewise linear regression (lmm w random slope for subject) - maybe knot at 30 mins less interested in significance, more interested in magnitude/rate 
-Maybe a spline  with a single knot at 30 mins
-
-Booklet time or cap time - choose whichever you think is best from a statistical point of view
-
-Biological Range of Data
-Cortisol > 26 keep but weird, Cortisol > 80 incorrect - probably a laboratory error
-DHEA upper limit on assay is 5.205 (max value in dataset - exclude these) - probably an error unless this is recorded repeatedly by the same individual (probably exclude these individuals bc they have a different process going on)
-#Cortisol..ug.dl., DHEA..pg.dl., Cortisol..nmol.L., DHEA..nmol.L. can be left as is
-Outliers: Check no cortisol > 80, check no DHEA >5.205
-
-```{r}
-#One outlier with cortisol value > 80 - remove this
-df_q3 <- filter(df_mod, Cortisol..nmol.L. < 80)
-#DHEA 
-x <- filter(df_q3,DHEA..nmol.L. == 5.205)
-#SubjectID 3037 needs to be be removed as it is at the upper limit multiple times, suggesting something is wrong
-df_q3 <- filter(df_q3, SubjectID != 3037)
-```
-
-
-```{r}
-#Visualize cortisol
-hist(df_q3$Cortisol..nmol.L., main = "Histogram of Cortisol (nmol/L")
-#Heavy right skew - let's look at a log transformation
-hist(log(df_q3$Cortisol..nmol.L.), main = "Histogram of Cortisol (nmol/L")
-```
-```{r}
-#Visualizing DHEA
-hist(df_q3$DHEA..nmol.L.)
-#Again heavy right skew - let's look at the log transform
-hist(log(df_q3$DHEA..nmol.L.))
-#Let's proceed with logging this variable
-```
-Check for missing Cortisol values:
-```{r}
-#Previously removed Cortisol (nmol/L) with levels above 80, these should return 0 
-sum(is.na(df_q3$Cortisol..nmol.L.))
-sum(is.na(df_q3$Cortisol..ug.dl.))
-```
-
-Check for missing DHEA
-```{r}
-sum(is.na(df_q3$DHEA..nmol.L.))
-#Remove lab values
-df_q3 <- filter(df_q3,DHEA..nmol.L. < 5.205)
-```
 What are the patterns of change over the course of the day? What is the investigator interested in knowing about changes over time?
 The investigator stated that levels of cortisol and DHEA are expected to increase sharply from waking to 30 minutes after waking and then decline more slowly over the rest of the day.
 She was interested in knowing if the SPIT test shows this expected pattern.
@@ -551,33 +504,107 @@ She wanted to know: 1) is there an increase in cortisol and/or DHEA from waking 
 She also stated that even if there are not statistically significant differences, she would like to know the estimates for the initial increase and rates of decline so she can compare them to what is known from other more standard hormone tests.
 
 
-Significant outlier
+Biological Range of Data
+Cortisol > 26 keep but weird, Cortisol > 80 incorrect - probably a laboratory error
+DHEA upper limit on assay is 5.205 (max value in dataset - exclude these) - probably an error unless this is recorded repeatedly by the same individual (probably exclude these individuals bc they have a different process going on)
+
+Outliers: Check no cortisol > 80, check no DHEA >5.205
+
 ```{r}
-ggplot(df_q3, aes(x = cap_interval_mins, y = Cortisol..nmol.L., group = SubjectID)) +
+#One outlier with cortisol value > 80 - remove this
+df_q3 <- filter(df_mod, Cortisol..nmol.L. < 80)
+
+#DHEA 
+x <- filter(df_q3,DHEA..nmol.L. == 5.205)
+
+#SubjectID 3037 needs to be be removed as it is at the upper limit multiple times, suggesting something is wrong
+df_q3 <- filter(df_q3, SubjectID != 3037)
+
+# Remove DHEA levels that are at the lab maximum
+df_q3 <- filter(df_q3,DHEA..nmol.L. < 5.205000)
+
+#Removing large Cortisol outlier
+df_q3 <- filter(df_q3, Cortisol..nmol.L. < 30)
+```
+
+
+```{r}
+#Visualize cortisol
+hist(df_q3$Cortisol..nmol.L., main = "Histogram of Cortisol (nmol/L)", xlab = "Cortisol (nmol/L)")
+#Heavy right skew - let's look at a log transformation
+hist(log(df_q3$Cortisol..nmol.L.), main = "Histogram of Cortisol (nmol/L)", xlab = "Cortisol (nmol/L)")
+```
+
+
+```{r}
+#Visualizing DHEA
+hist(df_q3$DHEA..nmol.L., main = "Histogram of DHEA (nmol/L)", xlab = "DHEA (nmol/L)")
+#Again heavy right skew - let's look at the log transform
+hist(log(df_q3$DHEA..nmol.L.),  main = "Histogram of DHEA (nmol/L)", xlab = "DHEA (nmol/L)")
+```
+
+```{r}
+summary(df_q3$DHEA..nmol.L.)
+summary(df_q3$Cortisol..nmol.L.)
+```
+
+Significant outlier of 37, let's remove this
+```{r}
+ggplot(df_q3, aes(x = cap_interval_mins, y = Cortisol..nmol.L., group = SubjectID, color = factor(SubjectID))) +
   geom_line() +
   theme_minimal(base_size = 14) +
   labs(
-    x = "Minutes since waking (cap)",
+    x = "Minutes since waking (Book)",
     y = "Cortisol (nmol/L)",
     title = "Cortisol Over Time Since Waking"
   )
 ```
 
+Subject 3024 has elevated DHEA levels
 ```{r}
-ggplot(df_q3, aes(x = cap_interval_mins, y = DHEA..nmol.L., group = SubjectID)) +
+ggplot(df_q3, aes(x = cap_interval_mins, y = DHEA..nmol.L., group = SubjectID, color = factor(SubjectID))) +
   geom_line() +
   theme_minimal(base_size = 14) +
   labs(
-    x = "Minutes since waking (cap)",
+    x = "Minutes since waking (Book)",
     y = "DHEA (nmol/L)",
     title = "DHEA Over Time Since Waking"
   )
 ```
 
+Let's see if DHEA even needs a changepoint like cortisol
+```{r}
+ggplot(df_q3, aes(x = cap_interval_mins, y = DHEA..nmol.L., group = SubjectID, color = factor(SubjectID))) +
+  geom_line() +
+  theme_minimal(base_size = 14) +
+  labs(
+    x = "Minutes since waking (Book)",
+    y = "DHEA (nmol/L)",
+    title = "DHEA Over Time Since Waking"
+  ) +
+  coord_cartesian(xlim = c(0, 120))
+
+```
+Changepoint at 30 might make sense let's investigate further
+
+```{r}
+dhea_peak_bysubj <- df_q3 %>%
+  filter(!is.na(DHEA..nmol.L.), !is.na(booklet_interval_mins)) %>%
+  group_by(SubjectID) %>%
+  slice_max(DHEA..nmol.L., with_ties = FALSE) %>%
+  summarise(
+    peak_minute = booklet_interval_mins,
+    peak_dhea = DHEA..nmol.L.,
+    .groups = "drop"
+  )
+
+hist(dhea_peak_bysubj$peak_minute, main = "Histogram of Peak DHEA Timing (Booklet Minutes since Waking)")
+```
 
 
 
-Create variable for 30 minute knot
+Create variable for 30 minute knot and let's proceed with logging DHEA and Cortisol
+
 ```{r}
 #Modified from BIOS 6643 code- changepoint creation
 df_q3 <- df_q3 %>%
@@ -587,36 +614,160 @@ df_q3 <- df_q3 %>%
     log_cortisol = log(Cortisol..nmol.L.),
     log_dhea = log(DHEA..nmol.L.)
   )
-
 ```
 
 
-Piecewise linear regression (lmm w random slope for subject) - maybe knot at 30 mins less interested in significance, more interested in magnitude/rate 
+Piecewise linear regression (lmm w random slope for subject) for Cortisol
+
 ```{r}
 q3_cortisol.lmm <- lmer(
   log_cortisol ~ wake_30 + after_30 + (1 | SubjectID),
   data = df_q3
 )
+
 summary(q3_cortisol.lmm)
-fixef(q3_cortisol.lmm)
-exp(confint(q3_cortisol.lmm))
 ```
-Intercept - waking cortisol
-per min during first 30
-per min post 30
+```{r}
+cortisol_table <- tidy(q3_cortisol.lmm, effects = "fixed", conf.int = TRUE)
+cortisol_table <- cortisol_table %>%
+  mutate(
+    estimate_exp = exp(estimate),
+    conf.low_exp = exp(conf.low),
+    conf.high_exp = exp(conf.high)
+  )
+
+cortisol_table_exp <- cortisol_table %>%
+  dplyr::select(term, estimate_exp, conf.low_exp, conf.high_exp, p.value) %>%
+  rename(
+    Term = term,
+    `Rate Ratio` = estimate_exp,
+    `95% CI Lower` = conf.low_exp,
+    `95% CI Upper` = conf.high_exp,
+    `p-value` = p.value
+  )
+kable(cortisol_table_exp, digits = 3,
+      caption = "Linear Mixed Model of Log DHEA on Minutes Since Waking - Raw Estimates")
+kable(cortisol_table_exp, digits = 3,
+      caption = "Linear Mixed Model of Log DHEA on Minutes Since Waking - Transformed Estimates")
+```
+
+
+Piecewise linear regression (lmm w random slope for subject) for DHEA
 ```{r}
 q3_dhea.lmm <- lmer(
-  log_dhea ~ wake_30 + after_30 + (1 | SubjectID),
+  log_dhea ~ booklet_interval_mins + (1 | SubjectID),
   data = df_q3
 )
-summary(q3_dhea.lmm)
 
+summary(q3_dhea.lmm)
+```
+Get results in an easy to read format
+```{r}
+dhea_table <- tidy(q3_dhea.lmm, effects = "fixed", conf.int = TRUE)
+dhea_table <- dhea_table %>%
+  mutate(
+    estimate_exp = exp(estimate),
+    conf.low_exp = exp(conf.low),
+    conf.high_exp = exp(conf.high)
+  )
+
+dhea_table_exp <- dhea_table %>%
+  dplyr::select(term, estimate_exp, conf.low_exp, conf.high_exp, p.value) %>%
+  rename(
+    Term = term,
+    `Rate Ratio` = estimate_exp,
+    `95% CI Lower` = conf.low_exp,
+    `95% CI Upper` = conf.high_exp,
+    `p-value` = p.value
+  )
+
+kable(dhea_table, digits = 3,
+      caption = "Linear Mixed Model of Log DHEA on Minutes Since Waking - Raw Estimates")
+kable(dhea_table_exp, digits = 3,
+      caption = "Linear Mixed Model of Log DHEA on Minutes Since Waking - Transformed Estimates")
 ```
 
+From resource on canvas:
 If this is a value great than 1, you can subtract 1 and multiply by 100 to get the % increase associated with a 1-unit increase in X1.
 
 If this value is less than 1, you can subtract 1 and multiple by 100 to get the % decrease associated with a 1-unit increase in X1.
 
 This means that exp(beta1) can be roughly interpreted as the percentage change in of Y with a one unit increase in X1.
+
+Visualizing the fit of Cortisol lmm
+```{r}
+pred_df <- tibble(
+  booklet_interval_mins = seq(min(df_q3$booklet_interval_mins, na.rm = TRUE),
+                          max(df_q3$booklet_interval_mins, na.rm = TRUE),
+                          length.out = 200)
+) %>%
+  mutate(
+    wake_30 = pmin(booklet_interval_mins, 30),
+    after_30 = pmax(booklet_interval_mins - 30, 0)
+  )
+
+pred_df$pred_log_cort <- predict(q3_cortisol.lmm, newdata = pred_df, re.form = NA)
+
+# Back-transform to nmol/L
+pred_df$pred_cort <- exp(pred_df$pred_log_cort)
+
+ggplot(df_q3,
+       aes(x = booklet_interval_mins,
+           y = Cortisol..nmol.L.,
+           group = SubjectID,
+           color = factor(SubjectID))) +
+  geom_line() +
+  geom_line(
+    data = pred_df,
+    aes(x = booklet_interval_mins, y = pred_cort),
+    inherit.aes = FALSE,
+    linewidth = 1,
+    color = "black"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(legend.position = "none") +
+  labs(
+    x = "Minutes since waking (cap)",
+    y = "Cortisol (nmol/L)",
+    title = "Cortisol Over Time Since Waking (with Model Fit)"
+  )
+
+```
+DHEA
+```{r}
+
+pred_dhea <- tibble(
+  booklet_interval_mins = seq(min(df_q3$booklet_interval_mins, na.rm = TRUE),
+                              max(df_q3$booklet_interval_mins, na.rm = TRUE),
+                              length.out = 200)
+)
+
+pred_dhea$pred_log_dhea <- predict(q3_dhea.lmm, newdata = pred_dhea, re.form = NA)
+
+# Back-transform to nmol/L
+pred_dhea$pred_dhea <- exp(pred_dhea$pred_log_dhea)
+
+ggplot(df_q3,
+       aes(x = booklet_interval_mins,
+           y = DHEA..nmol.L.,
+           group = SubjectID,
+           color = factor(SubjectID))) +
+  geom_line() +
+  geom_line(
+    data = pred_dhea,
+    aes(x = booklet_interval_mins, y = pred_dhea),
+    inherit.aes = FALSE,
+    linewidth = 1,
+    color = "black"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(legend.position = "none") +
+  labs(
+    x = "Minutes since waking (booklet)",
+    y = "DHEA (nmol/L)",
+    title = "DHEA Over Time Since Waking (Linear Mixed Model Fit)"
+  )
+
+```
 
 
