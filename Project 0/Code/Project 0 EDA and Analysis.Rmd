@@ -874,7 +874,7 @@ If this value is less than 1, you can subtract 1 and multiple by 100 to get the 
 
 This means that exp(beta1) can be roughly interpreted as the percentage change in of Y with a one unit increase in X1.
 
-Visualizing the fit of Cortisol lmm
+Visualizing the fit of Cortisol 
 ```{r}
 pred_df <- tibble(
   booklet_interval_mins = seq(min(df_q3$booklet_interval_mins, na.rm = TRUE),
@@ -907,13 +907,13 @@ ggplot(df_q3,
   theme_minimal(base_size = 14) +
   theme(legend.position = "none") +
   labs(
-    x = "Minutes since waking (cap)",
+    x = "Minutes since waking (Cap)",
     y = "Cortisol (nmol/L)",
-    title = "Cortisol Over Time Since Waking (with Model Fit)"
+    title = "Cortisol Levels Over Time Since Waking (with Model Fit)"
   )
 
 ```
-DHEA
+Visualizing the fit of DHEA
 ```{r}
 
 pred_dhea <- tibble(
@@ -945,7 +945,7 @@ ggplot(df_q3,
   labs(
     x = "Minutes since waking (booklet)",
     y = "DHEA (nmol/L)",
-    title = "DHEA Over Time Since Waking (Linear Mixed Model Fit)"
+    title = "DHEA Levels Over Time Since Waking (With Model Fit)"
   )
 
 ```
