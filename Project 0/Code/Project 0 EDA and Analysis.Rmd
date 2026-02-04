@@ -273,11 +273,22 @@ The residuals are fairly close to 0 for most of the fitted values but there are 
 
 Visualizing fitted vs observed values with identity line and fitted line
 ```{r}
-df_q1 <- df_q1 %>% mutate(booklet_fitted = fitted(q1.lmm))
+pred_q1 <- tibble(
+  cap_interval_mins = seq(min(df_q1$cap_interval_mins, na.rm = TRUE),
+                          max(df_q1$cap_interval_mins, na.rm = TRUE),
+                          length.out = 200)
+)
+
+pred_q1$booklet_pred <- predict(q1.lmm, newdata = pred_q1, re.form = NA)
 
 ggplot(df_q1, aes(x = cap_interval_mins, y = booklet_interval_mins)) +
   geom_point(alpha = 0.6) +
-  geom_line(aes(y = booklet_fitted), color = "red", linewidth = 1) +
+  geom_line(
+    data = pred_q1,
+    aes(x = cap_interval_mins, y = booklet_pred),
+    inherit.aes = FALSE,
+    color = "red"
+  ) +
   labs(
     x = "Cap interval (minutes since wake)",
     y = "Booklet interval (minutes since wake)",
@@ -441,8 +452,8 @@ ggplot(df_q2 %>% filter(!is.na(booklet_dev_mins)),
 
 Let's see whether cap deviations vary by sample:
 ```{r}
-ggplot(df_q2 %>% filter(!is.na(cap_dev_minutes)),
-       aes(factor(Collection.Sample), cap_dev_minutes)) +
+ggplot(df_q2 %>% filter(!is.na(cap_dev_mins)),
+       aes(factor(Collection.Sample), cap_dev_mins)) +
   geom_boxplot() +
   theme_minimal(base_size = 14) +
   labs(
@@ -454,8 +465,8 @@ ggplot(df_q2 %>% filter(!is.na(cap_dev_minutes)),
 ```
 Let's see whether bookletdeviations vary by sample:
 ```{r}
-ggplot(df_q2 %>% filter(!is.na(booklet_dev)),
-       aes(factor(Collection.Sample), booklet_dev)) +
+ggplot(df_q2 %>% filter(!is.na(booklet_dev_mins)),
+       aes(factor(Collection.Sample), booklet_dev_mins)) +
   geom_boxplot() +
   theme_minimal(base_size = 14) +
   labs(
