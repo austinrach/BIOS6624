@@ -1,0 +1,22 @@
+---
+title: "Project 0 Report"
+author: "Rachel Austin"
+date: "2026-02-04"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(lubridate)
+library(tidyr)
+library(openxlsx)
+library(lme4)
+library(lmerTest)
+library(kableExtra)
+library(segmented)
+library(tableone)
+library(ggplot2)
+library(broom.mixed)
+library(stringr)
+```
