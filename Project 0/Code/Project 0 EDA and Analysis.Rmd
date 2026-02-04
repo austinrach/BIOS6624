@@ -907,7 +907,7 @@ ggplot(df_q3,
   theme_minimal(base_size = 14) +
   theme(legend.position = "none") +
   labs(
-    x = "Minutes since waking (Cap)",
+    x = "Minutes since waking (booklet)",
     y = "Cortisol (nmol/L)",
     title = "Cortisol Levels Over Time Since Waking (with Model Fit)"
   )
