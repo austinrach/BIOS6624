@@ -825,7 +825,7 @@ cortisol_table_exp <- cortisol_table %>%
     `95% CI Upper` = conf.high_exp,
     `p-value` = p.value
   )
-kable(cortisol_table_exp, digits = 3,
+kable(cortisol_table, digits = 3,
       caption = "Linear Mixed Model of Log Cortisol on Minutes Since Waking - Raw Estimates")
 kable(cortisol_table_exp, digits = 3,
       caption = "Linear Mixed Model of Log Cortisol on Minutes Since Waking - Transformed Estimates")
