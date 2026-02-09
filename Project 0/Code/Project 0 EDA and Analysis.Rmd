@@ -840,6 +840,13 @@ q3_dhea.lmm <- lmer(
 )
 
 summary(q3_dhea.lmm)
+
+q3_dhea.lmm.knot <- lmer(
+  log_dhea ~ wake_30 + after_30  + (1 | SubjectID),
+  data = df_q3
+)
+
+summary(q3_dhea.lmm.knot)
 ```
 Get results in an easy to read format
 ```{r}
