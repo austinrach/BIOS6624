@@ -1,0 +1,17 @@
+---
+
+title: "Project 1 EDA "
+author: "Rachel Austin"
+date: "2026-02-09"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+setwd("/Users/austinra/BIOS6624/Project 1")
+df <- read.csv("Data Raw/hiv_6624_final.csv")
+```
+
