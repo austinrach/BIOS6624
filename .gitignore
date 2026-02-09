@@ -20,6 +20,11 @@ DataProcessed/**
 !DataRaw/.gitkeep
 !DataProcessed/.gitkeep
 .Ruserdata
+
+.DS_Store
+**/.DS_Store
+
+
 # Example code in package build process
 *-Ex.R
 # Output files from R CMD build
