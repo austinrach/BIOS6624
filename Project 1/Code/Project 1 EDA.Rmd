@@ -8,10 +8,15 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
 ```
 
 ```{r}
 setwd("/Users/austinra/BIOS6624/Project 1")
 df <- read.csv("Data Raw/hiv_6624_final.csv")
+```
+
+```{r}
+glimpse(df)
 ```
 
