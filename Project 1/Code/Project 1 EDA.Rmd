@@ -1,10 +1,6 @@
----
+------------------------------------------------------------------------
 
-title: "Project 1 EDA "
-author: "Rachel Austin"
-date: "2026-02-09"
-output: html_document
----
+title: "Project 1 EDA" author: "Rachel Austin" date: "2026-02-09" output: html_document ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -14,9 +10,99 @@ library(dplyr)
 ```{r}
 setwd("/Users/austinra/BIOS6624/Project 1")
 df <- read.csv("Data Raw/hiv_6624_final.csv")
+df <- filter(df, years == 0  |years == 2)
+```
+age, bmi, smoking status, education, race, ethnicity
+
+people using hard drugs might have a hard time with adherence - can differences found be explained by adherence
+For covariates should we use baseline or year 2? 
+
+We care about baseline. This is an observational study, not randomized so baseline will be important. 
+
+Viral load decreasing means treatment is working.
+CD4 increasing means immune function is improving.
+QOL scores important
+
+Outcomes are strongly associated with each other. The outcomes are not independent, viral load and cd4 will be inversely related. Hopefully, QOL will improve when viral load decreases and cd4 increases.
+
+If there are differences between subjects who use hard drugs and those who don't can that be explained by adherence levels?
+
+mediator
+```{r}
+glimpse(df)
+```
+
+We have 4 measures of treatment response.  The first two are laboratory measures, viral load (VLOAD), which is the number of HIV copies in a mL of blood, and the second is CD4+ T cell count (LEU3N), a measure of immunologic health.  In untreated HIV infection, viral load increases over time and CD4+ T cell counts decline as the immune system is attacked by the virus.  Once treatment is initiated, we expect viral load to decrease rapidly and CD4 counts to recover.  Our last two measures are quality of life measures from the SF-36.  The first is the aggregate physical quality of life score (AGG_PHYS) and the second is the aggregate mental quality of life score (AGG_MENT).  These scores range from 0 to 100, with higher scores indicating better quality of life.  We are not sure what happens to quality of life after initiating treatment - while in theory subjects’ improving health should result in increased quality of life, the side effects of these treatments are significant.  If subjects experience declines in quality of life after initiating treatment we would be concerned that they would stop treatment.
+
+Measures of Treatment Response:
+Laboratory measure: Viral Load (VLOAD) - number of copies of HIV virus
+999999999= 999,999,999 copies/ml untreated values 
+Possible value
+```{r}
+summary(df$VLOAD)
+hist(df$VLOAD)
+```
+190695040 is this value possible?
+
+
+Laboratory measure:
+CD4+ T cell count (LEU3N)
+0-9999
+```{r}
+summary(df$LEU3N)
+hist(df$LEU3N)
+```
+Quality of Life: Aggregate physical quality of life score (AGG_PHYS)
+```{r}
+summary(df$AGG_PHYS)
+hist(df$AGG_PHYS)
+```
+Quality of Life: aggregate mental quality of life score (AGG_MENT)
+```{r}
+summary(df$AGG_MENT)
+hist(df$AGG_MENT)
 ```
 
 ```{r}
-glimpse(df)
+table(df$hard_drugs, useNA = "ifany")
+```
+Only 122 hard drug users, 1612 non-hard drug users, 12 NA
+
+```{r}
+vis_dat(df)
+```
+
+Adherence is an important factor
+
+1 = 100%
+2 = 95-99%
+3 = 75-94%
+4 = < 75%
+
+Drop-Out: 715 to 506 , add to discussion section
+
+```{r}
+table(df$years)
+table(df$year,df$ADH, useNA = "ifany")
+```
+Race
+```{r}
+table(df$RACE, useNA = "ifany")
+```
+
+1= White, non-Hispanic
+2= White, Hispanic
+3= Black, non-Hispanic
+4= Black, Hispanic
+5= American Indian or Alaskan Native
+6= Asian or Pacific Islander
+7= Other
+8= Other Hispanic (created for 2001-03 new recruits) 
+Blank = "Missing"
+
+
+
+```{r}
+agg <- df %>% group(newid, years)
 ```
 
