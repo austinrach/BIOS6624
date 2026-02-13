@@ -3,12 +3,11 @@
 title: "Project 1 EDA" author: "Rachel Austin" date: "2026-02-09" output: html_document ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = "/Users/austinra/BIOS6624/Project 1")
 library(dplyr)
 ```
 
 ```{r}
-setwd("/Users/austinra/BIOS6624/Project 1")
 df <- read.csv("Data Raw/hiv_6624_final.csv")
 df <- filter(df, years == 0  |years == 2)
 ```
@@ -28,6 +27,8 @@ Outcomes are strongly associated with each other. The outcomes are not independe
 If there are differences between subjects who use hard drugs and those who don't can that be explained by adherence levels?
 
 mediator
+
+
 ```{r}
 glimpse(df)
 ```
@@ -106,3 +107,11 @@ Blank = "Missing"
 agg <- df %>% group(newid, years)
 ```
 
+10k MCMC should be enough
+cmdstan_diagnose should be used to check your models
+issues to check for:
+enough data for the model
+priors specified
+make sure to show diagnostic graphs
+
+HPDI is the shortest interva w 95% can use instead of credible interval
