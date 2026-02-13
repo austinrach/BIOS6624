@@ -11,16 +11,12 @@ library(dplyr)
 df <- read.csv("Data Raw/hiv_6624_final.csv")
 df <- filter(df, years == 0  |years == 2)
 ```
-age, bmi, smoking status, education, race, ethnicity
 
-people using hard drugs might have a hard time with adherence - can differences found be explained by adherence
-For covariates should we use baseline or year 2? 
+people using hard drugs might have a hard time with adherence - can differences found be explained by adherence For covariates should we use baseline or year 2?
 
-We care about baseline. This is an observational study, not randomized so baseline will be important. 
+We care about baseline. This is an observational study, not randomized so baseline will be important.
 
-Viral load decreasing means treatment is working.
-CD4 increasing means immune function is improving.
-QOL scores important
+Viral load decreasing means treatment is working. CD4 increasing means immune function is improving. QOL scores important
 
 Outcomes are strongly associated with each other. The outcomes are not independent, viral load and cd4 will be inversely related. Hopefully, QOL will improve when viral load decreases and cd4 increases.
 
@@ -28,90 +24,201 @@ If there are differences between subjects who use hard drugs and those who don't
 
 mediator
 
-
 ```{r}
 glimpse(df)
 ```
 
-We have 4 measures of treatment response.  The first two are laboratory measures, viral load (VLOAD), which is the number of HIV copies in a mL of blood, and the second is CD4+ T cell count (LEU3N), a measure of immunologic health.  In untreated HIV infection, viral load increases over time and CD4+ T cell counts decline as the immune system is attacked by the virus.  Once treatment is initiated, we expect viral load to decrease rapidly and CD4 counts to recover.  Our last two measures are quality of life measures from the SF-36.  The first is the aggregate physical quality of life score (AGG_PHYS) and the second is the aggregate mental quality of life score (AGG_MENT).  These scores range from 0 to 100, with higher scores indicating better quality of life.  We are not sure what happens to quality of life after initiating treatment - while in theory subjects’ improving health should result in increased quality of life, the side effects of these treatments are significant.  If subjects experience declines in quality of life after initiating treatment we would be concerned that they would stop treatment.
+Measures of Treatment Response: Laboratory measure: Viral Load (VLOAD) - number of copies of HIV virus 999999999= 999,999,999 copies/ml untreated values Possible value
 
-Measures of Treatment Response:
-Laboratory measure: Viral Load (VLOAD) - number of copies of HIV virus
-999999999= 999,999,999 copies/ml untreated values 
-Possible value
 ```{r}
 summary(df$VLOAD)
 hist(df$VLOAD)
 ```
+
 190695040 is this value possible?
 
+Laboratory measure: CD4+ T cell count (LEU3N) 0-9999
 
-Laboratory measure:
-CD4+ T cell count (LEU3N)
-0-9999
 ```{r}
 summary(df$LEU3N)
 hist(df$LEU3N)
 ```
+
 Quality of Life: Aggregate physical quality of life score (AGG_PHYS)
+
 ```{r}
 summary(df$AGG_PHYS)
 hist(df$AGG_PHYS)
 ```
+
 Quality of Life: aggregate mental quality of life score (AGG_MENT)
+
 ```{r}
 summary(df$AGG_MENT)
 hist(df$AGG_MENT)
 ```
 
+Hard drug use
+
 ```{r}
 table(df$hard_drugs, useNA = "ifany")
 ```
-Only 122 hard drug users, 1612 non-hard drug users, 12 NA
 
-```{r}
-vis_dat(df)
-```
+Only 122 hard drug users, 1612 non-hard drug users, 12 NA
 
 Adherence is an important factor
 
-1 = 100%
-2 = 95-99%
-3 = 75-94%
-4 = < 75%
-
-Drop-Out: 715 to 506 , add to discussion section
+1 = 100% 2 = 95-99% 3 = 75-94% 4 = \< 75%
 
 ```{r}
 table(df$years)
 table(df$year,df$ADH, useNA = "ifany")
 ```
-Race
+
+Drop-Out: 715 to 506 , add to discussion section
+
+Predictors to include: age, bmi, smoking status, education, race, ethnicity
+
+Hard Drugs
 ```{r}
-table(df$RACE, useNA = "ifany")
+table(df$hard_drugs, useNA = "ifany")
+#4 NA drugs
+```
+
+
+
+Age
+```{r}
+hist(df$age)
+sum(is.na(df$age))
+```
+
+BMI
+
+```{r}
+hist(df$BMI)
+# crazy high BMI value - this has to be an error
+filter(df,BMI > 70.1 & BMI <900)
+#14 observations with BMI values of -1 (improbable value)
+# 1 observation with BMI of 515.0066 and 1 with observation of BMI of 514.2514 - drop these
+filter(df, BMI == 999)
+#12 observations with BMI values of 999 (insufficient data)
+```
+
+Smoking Status
+
+```{r}
+table(df$SMOKE, useNA = "ifany")
+#1 missing value for smoking status
+```
+
+Education
+
+```{r}
+table(df$EDUCBAS, useNA = "ifany")
+```
+
+1= 8th grade or less education 
+(highest grade or 2= 9, 10, or 11th grade level) 
+3= 12th grade 4= At least one year college but no degree
+5= Four years college / got degree
+6= Some graduate work
+7= Post-graduate degree Blank= Missing
+
+Race
+
+```{r}
+table(df_filt$RACE, useNA = "ifany")
+
+df_filt <- filter(df, BMI != 999 & BMI > 0 & BMI < 500 & years == 2 & !is.na(VLOAD))
+#no missing values
 ```
 
 1= White, non-Hispanic
-2= White, Hispanic
+2= White, Hispanic 
 3= Black, non-Hispanic
-4= Black, Hispanic
-5= American Indian or Alaskan Native
-6= Asian or Pacific Islander
-7= Other
-8= Other Hispanic (created for 2001-03 new recruits) 
-Blank = "Missing"
+4= Black, Hispanic 
+5= American Indian or Alaskan Native 
+6= Asian or Pacific Islander 
+7= Other 
+8= Other Hispanic (created for 2001-03 new recruits) Blank = "Missing"
+
+2,4,7,
+
+explain motivation for data subset 
 
 
+What would the number of observations be if we excluded those with missing values and only paired primary outcomes? VLOAD
 
 ```{r}
-agg <- df %>% group(newid, years)
+vload_df <- filter(df, BMI != 999 & BMI > 0 & BMI < 500)
+vload_0 <- subset(vload_df, years == 0 & !is.na(VLOAD))
+vload_2 <- subset(vload_df, years == 2 & !is.na(VLOAD))
+
+vload_both <- intersect(vload_0$newid, vload_2$newid)
+#429 with matching VLOAD
+
+df_filtered <- df[df$subject %in% subjects_with_both, ]
 ```
 
-10k MCMC should be enough
-cmdstan_diagnose should be used to check your models
-issues to check for:
-enough data for the model
-priors specified
-make sure to show diagnostic graphs
+CD4
 
-HPDI is the shortest interva w 95% can use instead of credible interval
+```{r}
+cd4_df <- filter(df, BMI != 999 & BMI > 0 & BMI < 500)
+
+cd4_0 <- subset(cd4_df, years == 0 & !is.na(LEU3N))
+cd4_2 <- subset(cd4_df, years == 2 & !is.na(LEU3N))
+
+cd4_both <- intersect(cd4_0$newid, cd4_2$newid)
+```
+
+```{r}
+lab <- intersect(vload_both, cd4_both)
+qo <- intersect(aggm_both, aggp_both)
+tot <- intersect(lab,qo)
+
+#420 with no difference
+
+```
+
+AGG_MENT
+
+```{r}
+aggm_df <- filter(df, BMI != 999 & BMI > 0 & BMI < 500)
+
+aggm_0 <- subset(aggm_df, years == 0 & !is.na(AGG_MENT))
+aggm_2 <- subset(aggm_df, years == 2 & !is.na(AGG_MENT))
+
+aggm_both <- intersect(aggm_0$newid, aggm_2$newid)
+```
+
+AGG_PHYS
+
+```{r}
+aggp_df <- filter(df, BMI != 999 & BMI > 0 & BMI < 500)
+
+aggp_0 <-  subset(aggp_df, years == 0 & !is.na(AGG_PHYS))
+aggp_2 <- subset(aggp_df, years == 2 & !is.na(AGG_PHYS))
+
+aggp_both <- intersect(aggp_0$newid, aggp_2$newid)
+```
+
+10k MCMC should be enough cmdstan_diagnose should be used to check your models issues to check for: enough data for the model priors specified make sure to show diagnostic graphs
+
+HPDI is the shortest interval w 95% can use instead of credible interval
+
+Outcome Variables Exploration : Baseline
+
+```{r}
+library(table1)
+base 
+table1(~ hard_drugs + ADH + VLOAD + LEU3N + AGG_PHYS + AGG_MENT + age | years, df)
+```
+
+difference in difference model with baseline in predictor the same as a outcome with baseline as predictor
+model with and without adherence for hard drug and non hard drugs
+
+since var is so big intercept being at 0 is fine
+focus on hard drug users and non hard drug users difference
+
+8 models, 4 with primary 4 with QOL and adherence as mediator/covariate
