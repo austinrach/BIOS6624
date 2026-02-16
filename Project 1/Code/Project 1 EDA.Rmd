@@ -5,96 +5,94 @@ title: "Project 1 EDA" author: "Rachel Austin" date: "2026-02-09" output: html_d
 ```{r setup, include=FALSE}
 knitr::opts_knit$set(root.dir = "/Users/austinra/BIOS6624/Project 1")
 library(dplyr)
+library(table1)
+library(tidyr)
+library(Hmisc)
 ```
 
 ```{r}
 df <- read.csv("Data Raw/hiv_6624_final.csv")
+#Filter dataset to visit years of interest
 df <- filter(df, years == 0  |years == 2)
 ```
-
-people using hard drugs might have a hard time with adherence - can differences found be explained by adherence For covariates should we use baseline or year 2?
-
-We care about baseline. This is an observational study, not randomized so baseline will be important.
-
-Viral load decreasing means treatment is working. CD4 increasing means immune function is improving. QOL scores important
-
-Outcomes are strongly associated with each other. The outcomes are not independent, viral load and cd4 will be inversely related. Hopefully, QOL will improve when viral load decreases and cd4 increases.
-
-If there are differences between subjects who use hard drugs and those who don't can that be explained by adherence levels?
-
-mediator
 
 ```{r}
 glimpse(df)
 ```
 
-Measures of Treatment Response: Laboratory measure: Viral Load (VLOAD) - number of copies of HIV virus 999999999= 999,999,999 copies/ml untreated values Possible value
+Measures of Treatment Response:
+Laboratory measure: Viral Load (VLOAD) - number of copies of HIV virus 
+999999999= 999,999,999 copies/ml (this is a possible value for untreated individuals)
 
 ```{r}
 summary(df$VLOAD)
 hist(df$VLOAD)
+#extremely right skewed let's apply a log transform 
+hist(log(df$VLOAD))
+#log transform of vload is looking better
 ```
 
-190695040 is this value possible?
-
-Laboratory measure: CD4+ T cell count (LEU3N) 0-9999
+Laboratory measure: 
+CD4+ T cell count (LEU3N) 
+Range of possible values: 0-9999
 
 ```{r}
 summary(df$LEU3N)
 hist(df$LEU3N)
+# litte bit of right skew - let's explore transformations
+hist(log(df$LEU3N))
+# log transform does not look good
+hist(sqrt(df$LEU3N))
+#sqrt looks good and is an established transformation for count data
 ```
 
 Quality of Life: Aggregate physical quality of life score (AGG_PHYS)
-
+Range of possible values 6.34-75.54
 ```{r}
 summary(df$AGG_PHYS)
 hist(df$AGG_PHYS)
+# a little skew but let's leave this as is 
 ```
 
 Quality of Life: aggregate mental quality of life score (AGG_MENT)
-
+Range of possible values -1.82 - 77.30
 ```{r}
 summary(df$AGG_MENT)
 hist(df$AGG_MENT)
 ```
 
 Hard drug use
-
 ```{r}
 table(df$hard_drugs, useNA = "ifany")
+barplot(table(df$hard_drugs))
 ```
-
-Only 122 hard drug users, 1612 non-hard drug users, 12 NA
 
 Adherence is an important factor
-
-1 = 100% 2 = 95-99% 3 = 75-94% 4 = \< 75%
+1 = 100% 
+2 = 95-99% 
+3 = 75-94% 
+4 = < 75%
 
 ```{r}
-table(df$years)
-table(df$year,df$ADH, useNA = "ifany")
-```
-
-Drop-Out: 715 to 506 , add to discussion section
-
-Predictors to include: age, bmi, smoking status, education, race, ethnicity
-
-Hard Drugs
-```{r}
-table(df$hard_drugs, useNA = "ifany")
-#4 NA drugs
+table(df$year, useNA = "ifany")
+#Drop-Out: 715 to 506, add to discussion section
+table(df$year, df$ADH, useNA = "ifany")
+barplot(table(df$year,df$ADH))
 ```
 
 
+Additional predictors to include: 
+age, bmi, smoking status, education, race, ethnicity
 
 Age
+
 ```{r}
 hist(df$age)
 sum(is.na(df$age))
+#no missing age values
 ```
 
 BMI
-
 ```{r}
 hist(df$BMI)
 # crazy high BMI value - this has to be an error
@@ -106,18 +104,12 @@ filter(df, BMI == 999)
 ```
 
 Smoking Status
-
 ```{r}
 table(df$SMOKE, useNA = "ifany")
 #1 missing value for smoking status
 ```
 
 Education
-
-```{r}
-table(df$EDUCBAS, useNA = "ifany")
-```
-
 1= 8th grade or less education 
 (highest grade or 2= 9, 10, or 11th grade level) 
 3= 12th grade 4= At least one year college but no degree
@@ -125,15 +117,12 @@ table(df$EDUCBAS, useNA = "ifany")
 6= Some graduate work
 7= Post-graduate degree Blank= Missing
 
-Race
-
 ```{r}
-table(df_filt$RACE, useNA = "ifany")
-
-df_filt <- filter(df, BMI != 999 & BMI > 0 & BMI < 500 & years == 2 & !is.na(VLOAD))
-#no missing values
+table(df$EDUCBAS, useNA = "ifany")
 ```
 
+
+Race
 1= White, non-Hispanic
 2= White, Hispanic 
 3= Black, non-Hispanic
@@ -143,76 +132,125 @@ df_filt <- filter(df, BMI != 999 & BMI > 0 & BMI < 500 & years == 2 & !is.na(VLO
 7= Other 
 8= Other Hispanic (created for 2001-03 new recruits) Blank = "Missing"
 
-2,4,7,
-
-explain motivation for data subset 
-
-
-What would the number of observations be if we excluded those with missing values and only paired primary outcomes? VLOAD
-
 ```{r}
-vload_df <- filter(df, BMI != 999 & BMI > 0 & BMI < 500)
-vload_0 <- subset(vload_df, years == 0 & !is.na(VLOAD))
-vload_2 <- subset(vload_df, years == 2 & !is.na(VLOAD))
-
-vload_both <- intersect(vload_0$newid, vload_2$newid)
-#429 with matching VLOAD
-
-df_filtered <- df[df$subject %in% subjects_with_both, ]
+table(df$RACE, useNA = "ifany")
 ```
 
-CD4
+Explain motivation for data level collapses
 
+
+What would the number of observations be if we excluded those with missing values and only paired primary outcomes?
+
+Filtered Dataset Exploration
 ```{r}
-cd4_df <- filter(df, BMI != 999 & BMI > 0 & BMI < 500)
+#check all four outcomes
+outcomes <- c("VLOAD","LEU3N","AGG_MENT","AGG_PHYS")
 
-cd4_0 <- subset(cd4_df, years == 0 & !is.na(LEU3N))
-cd4_2 <- subset(cd4_df, years == 2 & !is.na(LEU3N))
+paired_by_outcome <- df %>%
+  filter(BMI != 999, BMI > 0, BMI < 500, years %in% c(0, 2)) %>%
+  pivot_longer(all_of(outcomes), names_to = "outcome", values_to = "value") %>%
+  group_by(outcome, newid) %>%
+  summarise(
+    has_year0 = any(years == 0 & !is.na(value)),
+    has_year2 = any(years == 2 & !is.na(value)),
+    paired = has_year0 & has_year2,
+    .groups = "drop"
+  ) %>%
+  group_by(outcome) %>%
+  summarise(n_paired = sum(paired), .groups = "drop")
 
-cd4_both <- intersect(cd4_0$newid, cd4_2$newid)
-```
-
-```{r}
-lab <- intersect(vload_both, cd4_both)
-qo <- intersect(aggm_both, aggp_both)
-tot <- intersect(lab,qo)
-
-#420 with no difference
+paired_by_outcome
 
 ```
 
-AGG_MENT
+AGG_MENT: 427 paired outcomes
+AGG_PHYS: 427 paired outcomes
+LEU3N: 429 paired outcomes
+VLOAD: 429 paired outcomes
+
 
 ```{r}
-aggm_df <- filter(df, BMI != 999 & BMI > 0 & BMI < 500)
-
-aggm_0 <- subset(aggm_df, years == 0 & !is.na(AGG_MENT))
-aggm_2 <- subset(aggm_df, years == 2 & !is.na(AGG_MENT))
-
-aggm_both <- intersect(aggm_0$newid, aggm_2$newid)
+df_paired_all4_ids <- df %>%
+  filter(BMI != 999, BMI > 0, BMI < 500, years %in% c(0, 2)) %>%
+  group_by(newid, years) %>%
+  summarise(complete_row = if_all(all_of(outcomes), ~ !is.na(.)), .groups = "drop") %>%
+  filter(complete_row) %>%
+  count(newid) %>%
+  filter(n == 2) %>%
+  pull(newid)
 ```
 
-AGG_PHYS
+All four: 420 paired ids
 
 ```{r}
-aggp_df <- filter(df, BMI != 999 & BMI > 0 & BMI < 500)
-
-aggp_0 <-  subset(aggp_df, years == 0 & !is.na(AGG_PHYS))
-aggp_2 <- subset(aggp_df, years == 2 & !is.na(AGG_PHYS))
-
-aggp_both <- intersect(aggp_0$newid, aggp_2$newid)
+df_paired_all4 <- df %>%
+  filter(newid %in% df_paired_all4_ids)
 ```
 
-10k MCMC should be enough cmdstan_diagnose should be used to check your models issues to check for: enough data for the model priors specified make sure to show diagnostic graphs
+Creating final dataset
 
-HPDI is the shortest interval w 95% can use instead of credible interval
+```{r}
+#Collapse education
+#0 is no college degree, 1 is college degree and higher
+df_paired_all4 <- df_paired_all4 %>%
+  mutate(education = case_when(
+    EDUCBAS %in% c(1,2,3,4) ~ 0,
+    EDUCBAS %in% c(5,6,7) ~ 1,
+    TRUE ~ NA_real_
+  ),
+  education = factor(
+    education,
+    levels = c(0, 1),
+    labels = c("No college degree", "College degree or higher")))
 
+#Collapse race
+# 0 is White, non-Hispanic and 1 is other
+df_paired_all4 <- df_paired_all4 %>%
+  mutate(race = case_when(
+    RACE  == 1 ~ 0,
+    RACE %in% c(2,3,4,5,6,7,8) ~1,
+    TRUE ~ NA_real_
+  ),
+  race = factor(
+    race, 
+    levels = c(0,1),
+    labels = c("White, non-Hispanic", "Other")
+  ))
+
+#Convert years and smoke to factors, transform variables
+
+df_paired_all4 <- df_paired_all4 %>%
+  mutate(years = factor(years, levels = c(0,2)),
+         SMOKE = factor(SMOKE, levels = c(1,2,3)),
+         log_vload = log(VLOAD),
+         sqrt_leu3n = sqrt(LEU3N))
+```
+
+Add labels to variables for table one
+```{r}
+label(df_paired_all4$VLOAD)      <- "Viral Load"
+label(df_paired_all4$LEU3N)      <- "Number of CD4 Positive Cells"
+label(df_paired_all4$AGG_PHYS)   <- "Aggregate Physical Quality of Life Score"
+label(df_paired_all4$AGG_MENT)   <- "Aggregate Mental Quality of Life Score"
+label(df_paired_all4$hard_drugs) <- "Hard Drug Use Since Last Visit"
+label(df_paired_all4$ADH)        <- "Adherence to Medicine"
+label(df_paired_all4$age)        <- "Age at visit (years)"
+label(df_paired_all4$BMI)        <- "Body Mass Index (kg/m^2)"
+label(df_paired_all4$SMOKE)      <- "Smoking Status"
+label(df_paired_all4$education)  <- "Education Level"
+label(df_paired_all4$race)       <- "Race"
+
+```
+
+Age
 Outcome Variables Exploration : Baseline
-
 ```{r}
-library(table1)
-base 
-table1(~ hard_drugs + ADH + VLOAD + LEU3N + AGG_PHYS + AGG_MENT + age | years, df)
+table1(~VLOAD + LEU3N + AGG_PHYS + AGG_MENT + hard_drugs + ADH + age + BMI + SMOKE + education + race | years, df_paired_all4)
+```
+
+Write dataset to folder for analysis
+```{r}
+openxlsx::write.xlsx(df_paired_all4, "Data Processed/Analysis Dataset.xlsx")
 ```
 
 difference in difference model with baseline in predictor the same as a outcome with baseline as predictor
@@ -222,3 +260,23 @@ since var is so big intercept being at 0 is fine
 focus on hard drug users and non hard drug users difference
 
 8 models, 4 with primary 4 with QOL and adherence as mediator/covariate
+
+QOL - 2 point change up or down clinically meaningful
+CD4 - 50 cells up or down is meaningful
+VLOAD - .5 decrease on log 10 up or down is meaningful
+
+
+people using hard drugs might have a hard time with adherence - can differences found be explained by adherence For covariates should we use baseline or year 2?
+
+We care about baseline. This is an observational study, not randomized so baseline will be important.
+
+Viral load decreasing means treatment is working. CD4 increasing means immune function is improving. QOL scores important
+
+Outcomes are strongly associated with each other. The outcomes are not independent, viral load and cd4 will be inversely related. Hopefully, QOL will improve when viral load decreases and cd4 increases.
+
+If there are differences between subjects who use hard drugs and those who don't can that be explained by adherence levels?
+
+10k MCMC should be enough cmdstan_diagnose should be used to check your models issues to check for: enough data for the model priors specified make sure to show diagnostic graphs
+
+
+mediator
