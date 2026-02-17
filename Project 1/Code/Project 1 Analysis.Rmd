@@ -9,9 +9,11 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_knit$set(root.dir = "/Users/austinra/BIOS6624/Project 1")
 library(openxlsx)
+library(dplyr)
+library(tidyr)
 ```
 
-
+Notes:
 difference in difference model with baseline in predictor the same as a outcome with baseline as predictor
 model with and without adherence for hard drug and non hard drugs
 
@@ -43,5 +45,64 @@ mediator.
 
 ```{r}
 df <- read.xlsx("Data Processed/Analysis Dataset.xlsx")
+df <- df %>% 
+  mutate(newid = as.character(newid),
+         AGG_MENT = as.numeric(AGG_MENT),
+         AGG_PHYS = as.numeric(AGG_PHYS),
+         BMI = as.numeric(BMI),
+         SMOKE = factor(SMOKE, levels = c(1,2,3),  c("Never smoked", "Former smoker", "Current smoker")),
+         age = as.numeric(age),
+         years  = as.numeric(years))
+```
+
+Pivot dataframe
+```{r}
+
+#Difference in outcomes (year2 - year0)
+delta_outcomes <- df %>%
+  dplyr::select(newid, years, log_vload, sqrt_leu3n, AGG_MENT, AGG_PHYS) %>%
+  pivot_wider(
+    id_cols = newid,
+    names_from = years,
+    values_from = c(log_vload, sqrt_leu3n, AGG_MENT, AGG_PHYS),
+    values_fn = mean
+  ) %>%
+  mutate(
+    delta_log_vload = log_vload_2 - log_vload_0,
+    delta_leu3n     = sqrt_leu3n_2 - sqrt_leu3n_0,
+    delta_agg_ment  = AGG_MENT_2 - AGG_MENT_0,
+    delta_agg_phys  = AGG_PHYS_2 - AGG_PHYS_0
+  )
+
+# Baseline covariates 
+baseline_covars <- df %>%
+  filter(years == 0) %>%
+  select(newid, age, BMI, SMOKE, education, race) %>%
+  group_by(newid) %>%
+  summarise(dplyr::across(dplyr::everything(), ~ dplyr::first(.x)), .groups = "drop")
+
+# Visit 2 covariates 
+visit2_covars <- df %>%
+  mutate(years = as.numeric(years)) %>%
+  filter(years == 2) %>%
+  select(newid, hard_drugs, ADH) %>%
+  group_by(newid) %>%
+  summarise(dplyr::across(dplyr::everything(), ~ dplyr::first(.x)), .groups = "drop")
+
+#Combine into analysis dataset
+change_data <- delta_outcomes %>%
+  inner_join(baseline_covars, by = "newid") %>%
+  inner_join(visit2_covars, by = "newid")
+
+```
+
+Frequentist Approach:
+
+Laboratory Outcome: VLOAD
+```{r}
+vload.mod <- lm(delta_log_vload ~ log_vload_0+BMI + age + SMOKE + race + education + hard_drugs + ADH,
+  data = change_data
+)
+summary(vload.mod)
 ```
 
