@@ -221,7 +221,7 @@ df_paired_all4 <- df_paired_all4 %>%
 
 df_paired_all4 <- df_paired_all4 %>%
   mutate(years = factor(years, levels = c(0,2)),
-         SMOKE = factor(SMOKE, levels = c(1,2,3)),
+         SMOKE = factor(SMOKE, levels = c(1,2,3), labels = c("Never smoked", "Former smoker", "Current smoker")),
          log_vload = log(VLOAD),
          sqrt_leu3n = sqrt(LEU3N))
 ```
