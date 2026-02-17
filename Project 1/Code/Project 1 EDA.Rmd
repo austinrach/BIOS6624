@@ -252,31 +252,3 @@ Write dataset to folder for analysis
 ```{r}
 openxlsx::write.xlsx(df_paired_all4, "Data Processed/Analysis Dataset.xlsx")
 ```
-
-difference in difference model with baseline in predictor the same as a outcome with baseline as predictor
-model with and without adherence for hard drug and non hard drugs
-
-since var is so big intercept being at 0 is fine
-focus on hard drug users and non hard drug users difference
-
-8 models, 4 with primary 4 with QOL and adherence as mediator/covariate
-
-QOL - 2 point change up or down clinically meaningful
-CD4 - 50 cells up or down is meaningful
-VLOAD - .5 decrease on log 10 up or down is meaningful
-
-
-people using hard drugs might have a hard time with adherence - can differences found be explained by adherence For covariates should we use baseline or year 2?
-
-We care about baseline. This is an observational study, not randomized so baseline will be important.
-
-Viral load decreasing means treatment is working. CD4 increasing means immune function is improving. QOL scores important
-
-Outcomes are strongly associated with each other. The outcomes are not independent, viral load and cd4 will be inversely related. Hopefully, QOL will improve when viral load decreases and cd4 increases.
-
-If there are differences between subjects who use hard drugs and those who don't can that be explained by adherence levels?
-
-10k MCMC should be enough cmdstan_diagnose should be used to check your models issues to check for: enough data for the model priors specified make sure to show diagnostic graphs
-
-
-mediator
