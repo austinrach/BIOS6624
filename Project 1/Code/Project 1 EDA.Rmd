@@ -20,6 +20,10 @@ df <- filter(df, years == 0  |years == 2)
 glimpse(df)
 ```
 
+```{r}
+table(df$years)
+```
+
 Measures of Treatment Response:
 Laboratory measure: Viral Load (VLOAD) - number of copies of HIV virus 
 999999999= 999,999,999 copies/ml (this is a possible value for untreated individuals)
@@ -68,6 +72,27 @@ summary(df$AGG_MENT)
 table(df$years[is.na(df$AGG_MENT)])
 #2 missing AGG_PHYS at baseline, 6 missing at year 2
 hist(df$AGG_MENT)
+```
+
+```{r}
+par(mfrow = c(2, 2))  # 2x2 panel layout
+
+hist(df$VLOAD,
+     main = "Baseline Viral Load",
+     xlab = "Viral Load")
+
+hist(df$LEU3N,
+     main = "Baseline CD4 T+ Cell Count",
+     xlab = "CD4 T+ Cell Count")
+
+hist(df$AGG_PHYS,
+     main = "Physical Quality of Life (SF-36)",
+     xlab = "Physical QOL")
+
+hist(df$AGG_MENT,
+     main = "Mental Quality of Life (SF-36)",
+     xlab = "Mental QOL")
+
 ```
 
 Hard drug use
@@ -168,6 +193,7 @@ valid_bmi <- df %>%
 
 df <- df %>%
   filter(newid %in% valid_bmi)
+table(df$years)
 
 #Determine paired outcomes 
 paired_df <- df %>%
@@ -277,6 +303,7 @@ df_all4 <- df_all4 %>%
   mutate(hard_drugs = factor(hard_drugs, levels = c(0,1), labels = c("No", "Yes")),
                              years = factor(years, levels = c(0,2)),
          SMOKE = factor(SMOKE, levels = c(1,2,3), labels = c("Never smoked", "Former smoker", "Current smoker")),
+         ADH = factor(ADH, levels = c(1,2,3,4), labels = c("100%", "95-99%", "75-94%", "<75%")), 
          log_vload = log(VLOAD),
          sqrt_leu3n = sqrt(LEU3N))
 ```
@@ -290,11 +317,15 @@ Subset dataset down to baseline (year 0) covariates and then year 0 and year 2 v
 #Baseline dataset
 df_base <- df_all4 %>%
   filter(years == 0) %>%
-  select(newid, hard_drugs, ADH, age, BMI, SMOKE, education, race,
-         VLOAD, LEU3N, AGG_PHYS, AGG_MENT, log_vload, sqrt_leu3n)
+  select(newid, hard_drugs, age, BMI, SMOKE, education, race)
 
+# Year 2 adherence
+df_adh2 <- df_all4 %>%
+  filter(years == 2) %>%
+  select(newid, ADH) %>%
+  rename(ADH_2 = ADH)
 
-
+# Wide outcomes
 df_wide <- df_all4 %>%
   select(newid, years, VLOAD, LEU3N, AGG_PHYS, AGG_MENT, log_vload, sqrt_leu3n) %>%
   pivot_wider(
@@ -303,10 +334,11 @@ df_wide <- df_all4 %>%
     names_glue = "{.value}_{years}"
   )
 
-#Merge
+# Merge everything
 df_analysis <- df_base %>%
-  select(newid, hard_drugs, ADH, age, BMI, SMOKE, education, race) %>%
+  left_join(df_adh2, by = "newid") %>%
   left_join(df_wide, by = "newid")
+
 
 #Add labels
 label(df_analysis$VLOAD_0)    <- "Viral Load at Baseline"
@@ -325,13 +357,15 @@ label(df_analysis$SMOKE)      <- "Smoking Status"
 label(df_analysis$education)  <- "Education Level"
 label(df_analysis$race)       <- "Race"
 
-table1(
-  ~ VLOAD_0 + VLOAD_2 + LEU3N_0 + LEU3N_2 + AGG_PHYS_0 + AGG_PHYS_2 + AGG_MENT_0 + AGG_MENT_2
-    + ADH + age + BMI + SMOKE + education + race
-  | hard_drugs,
-  data = df_analysis
-)
+library(gtsummary)
+df_analysis <- df_analysis %>% mutate(ADH = factor(ADH, levels = c(1,2,3,4), labels = c("100%", "95-99%", "75-94%", "<75%"))) 
+tbl <- df_analysis %>%
+  select(VLOAD_0, VLOAD_2, LEU3N_0, LEU3N_2,
+         AGG_PHYS_0, AGG_PHYS_2, AGG_MENT_0, AGG_MENT_2,
+         ADH, age, BMI, SMOKE, education, race, hard_drugs) %>%
+  tbl_summary(by = hard_drugs)
 
+as_gt(tbl)
 
 ```
 
