@@ -26,6 +26,8 @@ Laboratory measure: Viral Load (VLOAD) - number of copies of HIV virus
 
 ```{r}
 summary(df$VLOAD)
+table(df$years[is.na(df$VLOAD)])
+#42 missing baseline VLOAD, 19 missing year 2 VLOAD
 hist(df$VLOAD)
 #extremely right skewed let's apply a log transform 
 hist(log(df$VLOAD))
@@ -34,11 +36,14 @@ hist(log(df$VLOAD))
 
 Laboratory measure: 
 CD4+ T cell count (LEU3N) 
-Range of possible values: 0-9999
+Range of possible values: 0-99999
 
 ```{r}
 summary(df$LEU3N)
 hist(df$LEU3N)
+table(df$years[is.na(df$LEU3N)])
+#24 missing baseline LEU3N, 19 missing year 2 LEU3N
+table(df$years[is.na(df$LEU3N)], df$newid[is.na(df$LEU3N)])
 # litte bit of right skew - let's explore transformations
 hist(log(df$LEU3N))
 # log transform does not look good
@@ -50,6 +55,8 @@ Quality of Life: Aggregate physical quality of life score (AGG_PHYS)
 Range of possible values 6.34-75.54
 ```{r}
 summary(df$AGG_PHYS)
+table(df$years[is.na(df$AGG_PHYS)])
+#2 missing AGG_PHYS at baseline, 6 missing at year 2
 hist(df$AGG_PHYS)
 # a little skew but let's leave this as is 
 ```
@@ -58,11 +65,15 @@ Quality of Life: aggregate mental quality of life score (AGG_MENT)
 Range of possible values -1.82 - 77.30
 ```{r}
 summary(df$AGG_MENT)
+table(df$years[is.na(df$AGG_MENT)])
+#2 missing AGG_PHYS at baseline, 6 missing at year 2
 hist(df$AGG_MENT)
 ```
 
 Hard drug use
 ```{r}
+table(df$years[is.na(df$hard_drugs)])
+#4 missing values for hard drugs in year 2 
 table(df$hard_drugs, useNA = "ifany")
 barplot(table(df$hard_drugs))
 ```
@@ -76,6 +87,8 @@ Adherence is an important factor
 ```{r}
 table(df$year, useNA = "ifany")
 #Drop-Out: 715 to 506, add to discussion section
+table(df$years[is.na(df$ADH)])
+#0 missing values for Adherence at year 2
 table(df$year, df$ADH, useNA = "ifany")
 barplot(table(df$year,df$ADH))
 ```
@@ -105,8 +118,8 @@ filter(df, BMI == 999)
 
 Smoking Status
 ```{r}
-table(df$SMOKE, useNA = "ifany")
-#1 missing value for smoking status
+table(df$SMOKE[df$years ==0], useNA = "ifany")
+#0 missing values for smoking status at baseline
 ```
 
 Education
@@ -118,7 +131,8 @@ Education
 7= Post-graduate degree Blank= Missing
 
 ```{r}
-table(df$EDUCBAS, useNA = "ifany")
+table(df$EDUCBAS[df$years ==0], useNA = "ifany")
+#0 missing values at baseline
 ```
 
 
@@ -133,7 +147,8 @@ Race
 8= Other Hispanic (created for 2001-03 new recruits) Blank = "Missing"
 
 ```{r}
-table(df$RACE, useNA = "ifany")
+table(df$RACE[df$years ==0], useNA = "ifany")
+# o missing values at baseline
 ```
 
 Explain motivation for data level collapses
@@ -143,56 +158,95 @@ What would the number of observations be if we excluded those with missing value
 
 Filtered Dataset Exploration
 ```{r}
-#check all four outcomes
-outcomes <- c("VLOAD","LEU3N","AGG_MENT","AGG_PHYS")
-
-paired_by_outcome <- df %>%
-  filter(BMI != 999, BMI > 0, BMI < 500, years %in% c(0, 2)) %>%
-  pivot_longer(all_of(outcomes), names_to = "outcome", values_to = "value") %>%
-  group_by(outcome, newid) %>%
-  summarise(
-    has_year0 = any(years == 0 & !is.na(value)),
-    has_year2 = any(years == 2 & !is.na(value)),
-    paired = has_year0 & has_year2,
-    .groups = "drop"
-  ) %>%
-  group_by(outcome) %>%
-  summarise(n_paired = sum(paired), .groups = "drop")
-
-paired_by_outcome
-
-```
-
-AGG_MENT: 427 paired outcomes
-AGG_PHYS: 427 paired outcomes
-LEU3N: 429 paired outcomes
-VLOAD: 429 paired outcomes
-
-
-```{r}
-df_paired_all4_ids <- df %>%
-  filter(BMI != 999, BMI > 0, BMI < 500, years %in% c(0, 2)) %>%
-  group_by(newid, years) %>%
-  summarise(complete_row = if_all(all_of(outcomes), ~ !is.na(.)), .groups = "drop") %>%
-  filter(complete_row) %>%
-  count(newid) %>%
-  filter(n == 2) %>%
+#Filter out invalid BMI values
+valid_bmi <- df %>%
+  filter(years == 0) %>%        
+  filter(BMI != -1,
+         BMI != 999,
+         BMI <= 70.1) %>%
   pull(newid)
+
+df <- df %>%
+  filter(newid %in% valid_bmi)
+
+#Determine paired outcomes 
+paired_df <- df %>%
+  group_by(newid) %>%
+  summarise(
+    has_both_visits = n_distinct(years) == 2,
+    VLOAD_paired    = has_both_visits && all(!is.na(VLOAD)),
+    LEU3N_paired    = has_both_visits && all(!is.na(LEU3N)),
+    AGG_MENT_paired = has_both_visits && all(!is.na(AGG_MENT)),
+    AGG_PHYS_paired = has_both_visits && all(!is.na(AGG_PHYS)),
+    .groups = "drop"
+  )
+
+paired_df %>%
+  summarise(
+    n_subjects = n(),
+    across(ends_with("_paired"), sum)
+  )
+
+#Check if QOL measures are the same subjects
+setequal(
+  paired_df$newid[paired_df$AGG_MENT_paired],
+  paired_df$newid[paired_df$AGG_PHYS_paired]
+)
+
+#Check if lab measures are the same subjects
+setequal(
+  paired_df$newid[paired_df$VLOAD_paired],
+  paired_df$newid[paired_df$LEU3N_paired]
+)
+
 ```
 
-All four: 420 paired ids
+AGG_MENT: 481 paired outcomes
+AGG_PHYS: 481 paired outcomes
+LEU3N: 474 paired outcomes
+VLOAD: 474 paired outcomes
 
+Create datasets for each of these outcomes
 ```{r}
-df_paired_all4 <- df %>%
-  filter(newid %in% df_paired_all4_ids)
+ids_qol   <- paired_df %>% filter(AGG_PHYS_paired)   %>% pull(newid)
+ids_vload <- paired_df %>% filter(VLOAD_paired) %>% pull(newid)
+ids_leu3n <- paired_df %>% filter(LEU3N_paired) %>% pull(newid)
+
+df_qol <- df %>% filter(newid %in% ids_qol)
+df_vload <- df %>% filter(newid %in% ids_vload)
+df_leu3n <- df %>% filter(newid %in% ids_leu3n)
+
 ```
 
-Creating final dataset
+Check count if we only keep participants with all four measures
+```{r}
+paired_all4 <- df %>%    
+  group_by(newid) %>%
+  summarise(
+    has_both_visits = n_distinct(years) == 2,
+    all4_paired = has_both_visits &&
+      all(!is.na(VLOAD)) &&
+      all(!is.na(LEU3N)) &&
+      all(!is.na(AGG_MENT)) &&
+      all(!is.na(AGG_PHYS)),
+    .groups = "drop"
+  )
 
+# How many subjects meet this?
+paired_all4 %>% summarise(n_all4 = sum(all4_paired))
+
+#Dataframe of just these subjects
+df_all4 <- df %>%
+  semi_join(filter(paired_all4, all4_paired), by = "newid")
+
+```
+463 subjects with all four outcomes 
+
+Collapsing factor variables
 ```{r}
 #Collapse education
 #0 is no college degree, 1 is college degree and higher
-df_paired_all4 <- df_paired_all4 %>%
+df_all4 <- df_all4 %>%
   mutate(education = case_when(
     EDUCBAS %in% c(1,2,3,4) ~ 0,
     EDUCBAS %in% c(5,6,7) ~ 1,
@@ -205,7 +259,7 @@ df_paired_all4 <- df_paired_all4 %>%
 
 #Collapse race
 # 0 is White, non-Hispanic and 1 is other
-df_paired_all4 <- df_paired_all4 %>%
+df_all4 <- df_all4 %>%
   mutate(race = case_when(
     RACE  == 1 ~ 0,
     RACE %in% c(2,3,4,5,6,7,8) ~1,
@@ -219,34 +273,70 @@ df_paired_all4 <- df_paired_all4 %>%
 
 #Convert years and smoke to factors, transform variables
 
-df_paired_all4 <- df_paired_all4 %>%
-  mutate(years = factor(years, levels = c(0,2)),
+df_all4 <- df_all4 %>%
+  mutate(hard_drugs = factor(hard_drugs, levels = c(0,1), labels = c("No", "Yes")),
+                             years = factor(years, levels = c(0,2)),
          SMOKE = factor(SMOKE, levels = c(1,2,3), labels = c("Never smoked", "Former smoker", "Current smoker")),
          log_vload = log(VLOAD),
          sqrt_leu3n = sqrt(LEU3N))
 ```
 
-Add labels to variables for table one
+
+
+
+
+Subset dataset down to baseline (year 0) covariates and then year 0 and year 2 values both displayed for outcomes
 ```{r}
-label(df_paired_all4$VLOAD)      <- "Viral Load"
-label(df_paired_all4$LEU3N)      <- "Number of CD4 Positive Cells"
-label(df_paired_all4$AGG_PHYS)   <- "Aggregate Physical Quality of Life Score"
-label(df_paired_all4$AGG_MENT)   <- "Aggregate Mental Quality of Life Score"
-label(df_paired_all4$hard_drugs) <- "Hard Drug Use Since Last Visit"
-label(df_paired_all4$ADH)        <- "Adherence to Medicine"
-label(df_paired_all4$age)        <- "Age at visit (years)"
-label(df_paired_all4$BMI)        <- "Body Mass Index (kg/m^2)"
-label(df_paired_all4$SMOKE)      <- "Smoking Status"
-label(df_paired_all4$education)  <- "Education Level"
-label(df_paired_all4$race)       <- "Race"
+#Baseline dataset
+df_base <- df_all4 %>%
+  filter(years == 0) %>%
+  select(newid, hard_drugs, ADH, age, BMI, SMOKE, education, race,
+         VLOAD, LEU3N, AGG_PHYS, AGG_MENT, log_vload, sqrt_leu3n)
+
+
+
+df_wide <- df_all4 %>%
+  select(newid, years, VLOAD, LEU3N, AGG_PHYS, AGG_MENT, log_vload, sqrt_leu3n) %>%
+  pivot_wider(
+    names_from = years,
+    values_from = c(VLOAD, LEU3N, AGG_PHYS, AGG_MENT, log_vload, sqrt_leu3n),
+    names_glue = "{.value}_{years}"
+  )
+
+#Merge
+df_analysis <- df_base %>%
+  select(newid, hard_drugs, ADH, age, BMI, SMOKE, education, race) %>%
+  left_join(df_wide, by = "newid")
+
+#Add labels
+label(df_analysis$VLOAD_0)    <- "Viral Load at Baseline"
+label(df_analysis$VLOAD_2)    <- "Viral Load at Year 2"
+label(df_analysis$LEU3N_0)    <- "Number of CD4 Positive Cells at Baseline"
+label(df_analysis$LEU3N_2)    <- "Number of CD4 Positive Cells at Year 2"
+label(df_analysis$AGG_PHYS_0)   <- "Aggregate Physical Quality of Life Score at Baseline"
+label(df_analysis$AGG_PHYS_2)   <- "Aggregate Physical Quality of Life Score at Year 2"
+label(df_analysis$AGG_MENT_0)   <- "Aggregate Mental Quality of Life Score at Baseline"
+label(df_analysis$AGG_MENT_2)   <- "Aggregate Mental Quality of Life Score at Year 2"
+label(df_analysis$hard_drugs) <- "Hard Drug Use at Baseline"
+label(df_analysis$ADH)        <- "Adherence to Medicine"
+label(df_analysis$age)        <- "Age at Baseline"
+label(df_analysis$BMI)        <- "Body Mass Index (kg/m^2)"
+label(df_analysis$SMOKE)      <- "Smoking Status"
+label(df_analysis$education)  <- "Education Level"
+label(df_analysis$race)       <- "Race"
+
+table1(
+  ~ VLOAD_0 + VLOAD_2 + LEU3N_0 + LEU3N_2 + AGG_PHYS_0 + AGG_PHYS_2 + AGG_MENT_0 + AGG_MENT_2
+    + ADH + age + BMI + SMOKE + education + race
+  | hard_drugs,
+  data = df_analysis
+)
+
 
 ```
 
-Age
-Outcome Variables Exploration : Baseline
-```{r}
-table1(~VLOAD + LEU3N + AGG_PHYS + AGG_MENT + hard_drugs + ADH + age + BMI + SMOKE + education + race | years, df_paired_all4)
-```
+
+
 
 Write dataset to folder for analysis
 ```{r}
