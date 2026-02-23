@@ -48,11 +48,6 @@ hist(df$LEU3N)
 table(df$years[is.na(df$LEU3N)])
 #24 missing baseline LEU3N, 19 missing year 2 LEU3N
 table(df$years[is.na(df$LEU3N)], df$newid[is.na(df$LEU3N)])
-# litte bit of right skew - let's explore transformations
-hist(log(df$LEU3N))
-# log transform does not look good
-hist(sqrt(df$LEU3N))
-#sqrt looks good and is an established transformation for count data
 ```
 
 Quality of Life: Aggregate physical quality of life score (AGG_PHYS)
@@ -75,7 +70,7 @@ hist(df$AGG_MENT)
 ```
 
 ```{r}
-par(mfrow = c(2, 2))  # 2x2 panel layout
+par(mfrow = c(2, 2)) 
 
 hist(df$VLOAD,
      main = "Baseline Viral Load",
@@ -183,17 +178,6 @@ What would the number of observations be if we excluded those with missing value
 
 Filtered Dataset Exploration
 ```{r}
-#Filter out invalid BMI values
-valid_bmi <- df %>%
-  filter(years == 0) %>%        
-  filter(BMI != -1,
-         BMI != 999,
-         BMI <= 70.1) %>%
-  pull(newid)
-
-df <- df %>%
-  filter(newid %in% valid_bmi)
-table(df$years)
 
 #Determine paired outcomes 
 paired_df <- df %>%
@@ -297,8 +281,15 @@ df_all4 <- df_all4 %>%
     labels = c("White, non-Hispanic", "Other")
   ))
 
-#Convert years and smoke to factors, transform variables
+#Change invalid BMI values to missing
+df_all4 <- df_all4 %>% mutate(bmi = case_when(
+  BMI == -1 ~ NA,
+  BMI == 999 ~ NA,
+  BMI > 500 ~ NA,
+  TRUE ~ BMI
+))
 
+#Convert years and smoke to factors, transform variables
 df_all4 <- df_all4 %>%
   mutate(hard_drugs = factor(hard_drugs, levels = c(0,1), labels = c("No", "Yes")),
                              years = factor(years, levels = c(0,2)),
@@ -306,6 +297,7 @@ df_all4 <- df_all4 %>%
          ADH = factor(ADH, levels = c(1,2,3,4), labels = c("100%", "95-99%", "75-94%", "<75%")), 
          log_vload = log(VLOAD),
          sqrt_leu3n = sqrt(LEU3N))
+
 ```
 
 
