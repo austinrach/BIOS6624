@@ -55,58 +55,68 @@ describe the change between the two models, focusing on the covariates
 
 ```{r}
 df <- read.xlsx("Data Processed/Analysis Dataset.xlsx")
+
+#Change factor variables
 df <- df %>% 
   mutate(newid = as.character(newid),
-         AGG_MENT = as.numeric(AGG_MENT),
-         AGG_PHYS = as.numeric(AGG_PHYS),
-         BMI = as.numeric(BMI),
-         SMOKE = factor(SMOKE, levels = c(1,2,3),  c("Never smoked", "Former smoker", "Current smoker")),
-         age = as.numeric(age),
-         years  = as.numeric(years))
+         hard_drugs = factor(hard_drugs),
+         smoke = factor(smoke),
+         education = factor(education),
+         race = factor(race),
+         adh_2 = factor(adh_2))
 ```
 
-Pivot dataframe
-```{r}
-
-#Difference in outcomes (year2 - year0)
-delta_outcomes <- df %>%
-  dplyr::select(newid, years, log_vload, sqrt_leu3n, AGG_MENT, AGG_PHYS) %>%
-  pivot_wider(
-    id_cols = newid,
-    names_from = years,
-    values_from = c(log_vload, sqrt_leu3n, AGG_MENT, AGG_PHYS),
-    values_fn = mean
-  ) 
-
-# Baseline covariates 
-baseline_covars <- df %>%
-  filter(years == 0) %>%
-  select(newid, age, BMI, SMOKE, education, race) %>%
-  group_by(newid) %>%
-  summarise(dplyr::across(dplyr::everything(), ~ dplyr::first(.x)), .groups = "drop")
-
-# Visit 2 covariates 
-visit2_covars <- df %>%
-  mutate(years = as.numeric(years)) %>%
-  filter(years == 2) %>%
-  select(newid, hard_drugs, ADH) %>%
-  group_by(newid) %>%
-  summarise(dplyr::across(dplyr::everything(), ~ dplyr::first(.x)), .groups = "drop")
-
-#Combine into analysis dataset
-change_data <- delta_outcomes %>%
-  inner_join(baseline_covars, by = "newid") %>%
-  inner_join(visit2_covars, by = "newid")
-
-```
 
 Frequentist Approach:
 
 Laboratory Outcome: VLOAD
 ```{r}
-vload.mod <- lm(log_vload_2 ~ log_vload_0+BMI + age + SMOKE + race + education + hard_drugs + ADH,
-  data = change_data
+vload.mod <- lm(log_vload_2 ~ log_vload_0 + hard_drugs + age + BMI + smoke + race + education,
+  data = df
 )
 summary(vload.mod)
 ```
+Laboratory Outcome: VLOAD with ADH
+```{r}
+vload.mod.adh <- lm(log_vload_2 ~ log_vload_0 + hard_drugs + adh_2 + age + BMI + smoke + race + education,
+  data = df)
 
+summary(vload.mod.adh)
+```
+Laboratory Outcome: LEU3N 
+```{r}
+leu3n.mod <- lm(LEU3N_2 ~ LEU3N_0 + hard_drugs + age + BMI + smoke + race + education, data = df)
+summary(leu3n.mod)
+```
+
+Laboratory Outcome: LEU3N + ADH 
+```{r}
+leu3n.mod.adh <- lm(LEU3N_2 ~ LEU3N_0 + hard_drugs + adh_2 + age + BMI + smoke + race + education, data = df)
+summary(leu3n.mod.adh)
+```
+
+QOL Outcome: AGG_MENT
+```{r}
+agg_ment.mod <- lm(AGG_MENT_2 ~ AGG_MENT_0 + hard_drugs + age + BMI + smoke + race + education, data = df)
+summary(agg_ment.mod)
+```
+
+QOL Outcome: AGG_MENT + ADH
+```{r}
+agg_ment.mod.adh <- lm(AGG_MENT_2 ~ AGG_MENT_0 + hard_drugs + adh_2 + age + BMI + smoke + race + education, data = df)
+summary(agg_ment.mod.adh)
+```
+
+
+QOL Outcome: AGG_PHYS 
+```{r}
+agg_phys.mod <- lm(AGG_PHYS_2 ~ AGG_PHYS_0 + hard_drugs + age + BMI + smoke + race + education, data = df)
+summary(agg_phys.mod)
+```
+
+
+QOL Outcome: AGG_PHYS + ADH
+```{r}
+agg_phys.mod.adh <- lm(AGG_MENT_2 ~ AGG_MENT_0 + hard_drugs + adh_2 + age + BMI + smoke + race + education, data = df)
+summary(agg_phys.mod.adh)
+```

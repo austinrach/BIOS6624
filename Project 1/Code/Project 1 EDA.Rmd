@@ -233,9 +233,3 @@ df_all4 <- df %>%
 
 
 
-
-
-Write dataset to folder for analysis
-```{r}
-openxlsx::write.xlsx(df_paired_all4, "Data Processed/Analysis Dataset.xlsx")
-```
