@@ -29,8 +29,6 @@ VLOAD - .5 decrease on log 10 up or down is meaningful
 
 people using hard drugs might have a hard time with adherence - can differences found be explained by adherence For covariates should we use baseline or year 2?
 
-We care about baseline. This is an observational study, not randomized so baseline will be important.
-
 Viral load decreasing means treatment is working. CD4 increasing means immune function is improving. QOL scores important
 
 Outcomes are strongly associated with each other. The outcomes are not independent, viral load and cd4 will be inversely related. Hopefully, QOL will improve when viral load decreases and cd4 increases.
@@ -40,8 +38,20 @@ If there are differences between subjects who use hard drugs and those who don't
 10k MCMC should be enough cmdstan_diagnose should be used to check your models issues to check for: enough data for the model priors specified make sure to show diagnostic graphs
 
 
-mediator.
+Focus report on the Bayesian results - display frequentist and explain things are similar
 
+Clinical collapsing adherence 95% and above, below 95%
+collapse smoker to current smoker and non current smoker
+
+Adherence as confounder (can obscure a relationship or create one that is there) or mediator
+
+Does adherence explain any differences or non differences between a hard drug user
+
+
+Hard drug user -> adherence (descriptive statistics)
+Hard drug use, covariates 
+Hard drug use, adherence, covariates
+describe the change between the two models, focusing on the covariates
 
 ```{r}
 df <- read.xlsx("Data Processed/Analysis Dataset.xlsx")
@@ -66,13 +76,7 @@ delta_outcomes <- df %>%
     names_from = years,
     values_from = c(log_vload, sqrt_leu3n, AGG_MENT, AGG_PHYS),
     values_fn = mean
-  ) %>%
-  mutate(
-    delta_log_vload = log_vload_2 - log_vload_0,
-    delta_leu3n     = sqrt_leu3n_2 - sqrt_leu3n_0,
-    delta_agg_ment  = AGG_MENT_2 - AGG_MENT_0,
-    delta_agg_phys  = AGG_PHYS_2 - AGG_PHYS_0
-  )
+  ) 
 
 # Baseline covariates 
 baseline_covars <- df %>%
@@ -100,7 +104,7 @@ Frequentist Approach:
 
 Laboratory Outcome: VLOAD
 ```{r}
-vload.mod <- lm(delta_log_vload ~ log_vload_0+BMI + age + SMOKE + race + education + hard_drugs + ADH,
+vload.mod <- lm(log_vload_2 ~ log_vload_0+BMI + age + SMOKE + race + education + hard_drugs + ADH,
   data = change_data
 )
 summary(vload.mod)
