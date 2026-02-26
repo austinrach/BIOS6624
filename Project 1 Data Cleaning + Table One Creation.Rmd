@@ -91,6 +91,17 @@ df_all4 <- df_all4 %>%
   )
 
 
+#Collapse SMOKE to to current smoker and not current smoker
+df_all4 <- df_all4 %>% 
+  mutate(smoke = case_when(
+  SMOKE == 1 ~ 0,
+  SMOKE == 2 ~ 0,
+  SMOKE == 3 ~ 1,
+  TRUE ~ NA_real_
+),
+  smoke = factor(smoke, levels =c(0,1),
+                 labels = c("Current smoker", "Not current smoker")))
+
 #Change invalid BMI values to missing
 df_all4 <- df_all4 %>% mutate(bmi = case_when(
   BMI == -1 ~ NA,
@@ -104,7 +115,6 @@ df_all4 <- df_all4 %>% mutate(bmi = case_when(
 df_all4 <- df_all4 %>%
   mutate(hard_drugs = factor(hard_drugs, levels = c(0,1), labels = c("No", "Yes")),
                              years = factor(years, levels = c(0,2)),
-         SMOKE = factor(SMOKE, levels = c(1,2,3), labels = c("Never smoked", "Former smoker", "Current smoker")),
          log_vload = log(VLOAD))
 
 ```
@@ -114,7 +124,7 @@ Subset dataset down to baseline (year 0) covariates and then year 0 and year 2 v
 #Baseline dataset
 df_base <- df_all4 %>%
   filter(years == 0) %>%
-  select(newid, hard_drugs, age, BMI, SMOKE, education, race)
+  select(newid, hard_drugs, age, BMI, smoke, education, race)
 
 # Year 2 adherence
 df_adh2 <- df_all4 %>%
@@ -137,7 +147,7 @@ df_analysis <- df_base %>%
   left_join(df_wide, by = "newid")
 
 # Write dataset to folder for analysis
-#openxlsx::write.xlsx(df_analysis, "Data Processed/Analysis Dataset.xlsx")
+openxlsx::write.xlsx(df_analysis, "Data Processed/Analysis Dataset.xlsx")
 
 ```
 
