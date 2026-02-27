@@ -1,0 +1,60 @@
+---
+title: 'Project 1 Bayesian Analysis: VLOAD'
+author: "Rachel Austin"
+date: "2026-02-27"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(cmdstanr)
+library(bayesplot)  # diagnostic plots of the MCMC chains
+library(posterior)  # for summarizing posterior draws
+library(bayestestR) # for calculating higest density posterior intervals
+library(mcmcse)     # for calculating MCMCSE's
+library(loo)        # for getting model fit statistics (WAIC and LOO-IC)
+library(dplyr)
+library(tibble)
+```
+
+Bayesian Analysis
+
+```{r}
+mod <- cmdstan_model("/Users/austinra/BIOS6624/Project 1/Code/STAN/linear_regression_half_normal.stan")
+```
+Parameters
+
+```{r}
+y.vload <- df$log_vload_2 
+X.vload <- model.matrix(~ log_vload_0 + hard_drugs + age + BMI + smoke + race + education, data = df)
+N.vload <- nrow(df)
+P.vload <- ncol(df)
+
+m <-c(rep(0, P.vload))
+s <- rep(1000, P.vload)
+sigma_sd <- 1000
+```
+
+
+```{r}
+# create data list to pass to STAN
+data_list <- list(
+  N = N.vload,
+  P = P.vload,
+  X = X.vload,
+  y = y.vload,
+  prior_mean = m,
+  prior_sd = s,
+  sigma_prior_sd = sigma_sd
+)
+```
+
+```{r}
+fit <- mod$sample(
+  data = data_list,
+  chains = 4,
+  iter_warmup = 2000,
+  iter_sampling = 5000,
+  seed = 14
+)
+```
