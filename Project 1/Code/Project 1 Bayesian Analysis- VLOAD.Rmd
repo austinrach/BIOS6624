@@ -21,6 +21,16 @@ Bayesian Analysis
 
 ```{r}
 mod <- cmdstan_model("/Users/austinra/BIOS6624/Project 1/Code/STAN/linear_regression_half_normal.stan")
+df <- read.xlsx("/Users/austinra/BIOS6624/Project 1/Data Processed/Analysis Dataset.xlsx")
+
+#Change factor variables
+df <- df %>% 
+  mutate(newid = as.character(newid),
+         hard_drugs = factor(hard_drugs),
+         smoke = factor(smoke),
+         education = factor(education),
+         race = factor(race),
+         adh_2 = factor(adh_2))
 ```
 Parameters
 
@@ -28,7 +38,7 @@ Parameters
 y.vload <- df$log_vload_2 
 X.vload <- model.matrix(~ log_vload_0 + hard_drugs + age + BMI + smoke + race + education, data = df)
 N.vload <- nrow(df)
-P.vload <- ncol(df)
+P.vload <- 8
 
 m <-c(rep(0, P.vload))
 s <- rep(1000, P.vload)
@@ -54,7 +64,186 @@ fit <- mod$sample(
   data = data_list,
   chains = 4,
   iter_warmup = 2000,
-  iter_sampling = 5000,
+  iter_sampling = 10000,
   seed = 14
 )
+```
+
+###########################################################################
+# STEP 5: Summarize the posterior
+###########################################################################
+
+
+```{r}
+fit$summary(variables=c("beta[1]", "beta[2]", "sigma"))
+```
+
+
+
+# Fancier Table of Results of Interest from the Posterior
+# Extract posterior draws from cmdstanr fit
+```{r}
+draws <- fit$draws()  
+
+draws_mat <- as_draws_matrix(draws)
+params <- colnames(draws_mat)
+
+# Exclude non-parameter columns from summarization: lp__ and log_lik[n]
+params <- params[!grepl("lp__|log_lik", params)]
+
+
+# Build summary table
+summary_table <- lapply(params, function(p) {
+  vals <- as.numeric(draws_mat[, p])
+  
+  # Monte Carlo standard error
+  # Used to determine if we have run enough iterations
+  # rule of thumb: MCSE should be less than 6.27% of the posterior standard deviation
+  mcse_val <- mcmcse::mcse(vals)$se
+  
+  # Effective sample size
+  ess_val <- ess_bulk(vals)
+  
+  # 95% HPDI
+  hpd <- hdi(vals, ci = 0.95)
+  
+  tibble(
+    Parameter = p,
+    Estimate  = mean(vals),
+    MCSE      = mcse_val,
+    Std_Dev   = sd(vals),
+    HPDI_2.5  = hpd$CI_low,
+    HPDI_97.5 = hpd$CI_high,
+    ESS       = ess_val
+  )
+}) %>% bind_rows()
+
+print(summary_table)
+
+# check that mcmcse < 6% of posterior SD
+(100*summary_table$MCSE/summary_table$Std_Dev) < 6
+
+```
+```{r}
+loglik_mat <- as_draws_matrix(fit$draws("log_lik"))  # iterations x N
+
+# Get LOO-CV and WAIC
+loo_res <- loo(loglik_mat)
+print(loo_res)
+```
+
+```{r}
+draws <- as_draws_array(fit$draws())  # dimensions: iterations x chains x parameters
+draws_df <- as_draws_df(fit$draws())  # tidy format for bayesplot / ggplot
+params <- c("beta[1]", "beta[2]", "beta[3]", "sigma")
+
+# Trace plots
+# Trace plots show whether chains are mixing well and exploring the parameter space.
+# Chains should mix well (lines overlap)
+# No long trends (no “stickiness”)
+# Ideally all chains overlap around the same mean
+
+mcmc_trace(draws, pars = params)
+
+# R-hat and ESS diagnostics
+# R-hat ≈ 1.00 → converged
+# ESS should be reasonably large (e.g., >100–200 per parameter)
+fit$summary(variables=params)
+
+
+# Posterior Density Plots
+# Overlaid densities from multiple chains should match closely
+# If densities differ substantially between chains → poor mixing
+mcmc_dens_overlay(draws, pars = params)
+
+# Auto-correlation 
+# Autocorrelation should decay quickly
+# High autocorrelation → may need more iterations or thinning
+mcmc_acf(draws, pars = params)
+
+# Diagnostics from cmdstan
+fit$cmdstan_diagnose()
+
+```
+Parameters
+
+```{r}
+y.vload <- df$log_vload_2 
+X.vload.adh <- model.matrix(~ log_vload_0 + hard_drugs + adh_2 + age + BMI + smoke + race + education, data = df)
+N.vload <- nrow(df)
+P.vload <- ncol(X.vload.adh)
+
+m <-c(rep(0, P.vload))
+s <- rep(1000, P.vload)
+sigma_sd <- 1000
+```
+
+
+```{r}
+# create data list to pass to STAN
+data_list <- list(
+  N = N.vload,
+  P = P.vload,
+  X = X.vload.adh,
+  y = y.vload,
+  prior_mean = m,
+  prior_sd = s,
+  sigma_prior_sd = sigma_sd
+)
+```
+
+```{r}
+fit <- mod$sample(
+  data = data_list,
+  chains = 4,
+  iter_warmup = 2000,
+  iter_sampling = 10000,
+  seed = 14
+)
+```
+
+
+ Fancier Table of Results of Interest from the Posterior
+# Extract posterior draws from cmdstanr fit
+```{r}
+draws <- fit$draws()  
+
+draws_mat <- as_draws_matrix(draws)
+params <- colnames(draws_mat)
+
+# Exclude non-parameter columns from summarization: lp__ and log_lik[n]
+params <- params[!grepl("lp__|log_lik", params)]
+
+
+# Build summary table
+summary_table <- lapply(params, function(p) {
+  vals <- as.numeric(draws_mat[, p])
+  
+  # Monte Carlo standard error
+  # Used to determine if we have run enough iterations
+  # rule of thumb: MCSE should be less than 6.27% of the posterior standard deviation
+  mcse_val <- mcmcse::mcse(vals)$se
+  
+  # Effective sample size
+  ess_val <- ess_bulk(vals)
+  
+  # 95% HPDI
+  hpd <- hdi(vals, ci = 0.95)
+  
+  tibble(
+    Parameter = p,
+    Estimate  = mean(vals),
+    MCSE      = mcse_val,
+    Std_Dev   = sd(vals),
+    HPDI_2.5  = hpd$CI_low,
+    HPDI_97.5 = hpd$CI_high,
+    ESS       = ess_val
+  )
+}) %>% bind_rows()
+
+print(summary_table)
+
+# check that mcmcse < 6% of posterior SD
+(100*summary_table$MCSE/summary_table$Std_Dev) < 6
+
 ```
