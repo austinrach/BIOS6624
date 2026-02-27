@@ -7,19 +7,10 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-knitr::opts_knit$set(root.dir = "/Users/austinra/BIOS6624/Project 1")
+#knitr::opts_knit$set(root.dir = "/Users/austinra/BIOS6624/Project 1")
 library(openxlsx)
 library(dplyr)
 library(tidyr)
-library(cmdstanr)
-library(bayesplot)  # diagnostic plots of the MCMC chains
-library(posterior)  # for summarizing posterior draws
-library(bayestestR) # for calculating higest density posterior intervals
-library(mcmcse)     # for calculating MCMCSE's
-library(loo)        # for getting model fit statistics (WAIC and LOO-IC)
-library(dplyr)
-library(tibble)
-
 ```
 
 Notes:
@@ -63,7 +54,7 @@ Hard drug use, adherence, covariates
 describe the change between the two models, focusing on the covariates
 
 ```{r}
-df <- read.xlsx("Data Processed/Analysis Dataset.xlsx")
+df <- read.xlsx("Project 1/Data Processed/Analysis Dataset.xlsx")
 
 #Change factor variables
 df <- df %>% 
@@ -130,9 +121,5 @@ agg_phys.mod.adh <- lm(AGG_MENT_2 ~ AGG_MENT_0 + hard_drugs + adh_2 + age + BMI 
 summary(agg_phys.mod.adh)
 ```
 
-Bayesian Analysis
 
-```{r}
-
-```
 
