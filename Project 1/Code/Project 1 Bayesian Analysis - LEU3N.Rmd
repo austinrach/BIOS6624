@@ -170,7 +170,7 @@ Parameters
 y.LEU3N <- df$LEU3N_2
 X.LEU3N.ADH <- model.matrix(~ LEU3N_0 + hard_drugs + adh_2 + age + BMI + smoke + race + education, data = df)
 N.LEU3N <- nrow(df)
-P.LEU3N <- ncol(X.LEU3N)
+P.LEU3N <- ncol(X.LEU3N.ADH)
 
 m <-c(rep(0, P.LEU3N))
 s <- rep(1000, P.LEU3N)
