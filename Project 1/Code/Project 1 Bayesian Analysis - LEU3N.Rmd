@@ -1,0 +1,293 @@
+---
+title: 'Project 1 Bayesian Analysis: LEU3N'
+author: "Rachel Austin"
+date: "2026-02-27"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(cmdstanr)
+library(bayesplot)  # diagnostic plots of the MCMC chains
+library(posterior)  # for summarizing posterior draws
+library(bayestestR) # for calculating higest density posterior intervals
+library(mcmcse)     # for calculating MCMCSE's
+library(loo)        # for getting model fit statistics (WAIC and LOO-IC)
+library(dplyr)
+library(tibble)
+```
+
+Bayesian Analysis
+
+```{r}
+mod <- cmdstan_model("/Users/austinra/BIOS6624/Project 1/Code/STAN/linear_regression_half_normal.stan")
+df <- read.xlsx("/Users/austinra/BIOS6624/Project 1/Data Processed/Analysis Dataset.xlsx")
+
+#Change factor variables
+df <- df %>% 
+  mutate(newid = as.character(newid),
+         hard_drugs = factor(hard_drugs),
+         smoke = factor(smoke),
+         education = factor(education),
+         race = factor(race),
+         adh_2 = factor(adh_2))
+```
+
+Following code pulled from <https://github.com/camillemmoore/BIOS6624/blob/main/PSAExample/Code/2_PrelimModels_Gleason_Worksheet3.R> Modified for project 1
+
+Parameters
+
+```{r}
+y.LEU3N <- df$LEU3N_2
+X.LEU3N <- model.matrix(~ LEU3N_0 + hard_drugs + age + BMI + smoke + race + education, data = df)
+N.LEU3N <- nrow(df)
+P.LEU3N <- ncol(X.LEU3N)
+
+m <-c(rep(0, P.LEU3N))
+s <- rep(1000, P.LEU3N)
+sigma_sd <- 1000
+```
+
+```{r}
+# create data list to pass to STAN
+data_list_LEU3N <- list(
+  N = N.LEU3N,
+  P = P.LEU3N,
+  X = X.LEU3N,
+  y = y.LEU3N,
+  prior_mean = m,
+  prior_sd = s,
+  sigma_prior_sd = sigma_sd
+)
+```
+
+```{r}
+fit.LEU3N <- mod$sample(
+  data = data_list_LEU3N,
+  chains = 4,
+  iter_warmup = 2000,
+  iter_sampling = 10000,
+  seed = 14
+)
+```
+
+```{r}
+fit.LEU3N$summary(variables=c("beta[1]", "beta[2]", "beta[3]","beta[4]", "beta[5]", "beta[6]", "beta[7]", "beta[8]", "sigma"))
+```
+
+# Fancier Table of Results of Interest from the Posterior
+
+# Extract posterior draws from cmdstanr fit
+
+```{r}
+draws_LEU3N <- fit.LEU3N$draws()  
+
+draws_mat_LEU3N <- as_draws_matrix(draws_LEU3N)
+params_LEU3N <- colnames(draws_mat_LEU3N)
+
+# Exclude non-parameter columns from summarization: lp__ and log_lik[n]
+params_LEU3N <- params_LEU3N[!grepl("lp__|log_lik", params_LEU3N)]
+
+
+# Build summary table
+summary_table_LEU3N <- lapply(params_LEU3N, function(p) {
+  vals <- as.numeric(draws_mat_LEU3N[, p])
+  
+  # Monte Carlo standard error
+  # Used to determine if we have run enough iterations
+  # rule of thumb: MCSE should be less than 6.27% of the posterior standard deviation
+  mcse_val <- mcmcse::mcse(vals)$se
+  
+  # Effective sample size
+  ess_val <- ess_bulk(vals)
+  
+  # 95% HPDI
+  hpd <- hdi(vals, ci = 0.95)
+  
+  tibble(
+    Parameter = p,
+    Estimate  = mean(vals),
+    MCSE      = mcse_val,
+    Std_Dev   = sd(vals),
+    HPDI_2.5  = hpd$CI_low,
+    HPDI_97.5 = hpd$CI_high,
+    ESS       = ess_val
+  )
+}) %>% bind_rows()
+
+print(summary_table_LEU3N)
+
+# check that mcmcse < 6% of posterior SD
+(100*summary_table_LEU3N$MCSE/summary_table_LEU3N$Std_Dev) < 6
+
+```
+
+```{r}
+loglik_mat_LEU3N <- as_draws_matrix(fit.LEU3N$draws("log_lik"))  # iterations x N
+
+# Get LOO-CV and WAIC
+loo_res_LEU3N <- loo(loglik_mat_LEU3N)
+print(loo_res_LEU3N)
+```
+
+```{r}
+draws_LEU3N <- as_draws_array(fit.LEU3N$draws())  # dimensions: iterations x chains x parameters
+draws_df_LEU3N <- as_draws_df(fit.LEU3N$draws())  # tidy format for bayesplot / ggplot
+params_LEU3N <- c("beta[1]", "beta[2]", "beta[3]","beta[4]", "beta[5]", "beta[6]", "beta[7]", "beta[8]", "sigma")
+
+# Trace plots
+# Trace plots show whether chains are mixing well and exploring the parameter space.
+# Chains should mix well (lines overlap)
+# No long trends (no “stickiness”)
+# Ideally all chains overlap around the same mean
+
+mcmc_trace(draws_LEU3N, pars = params_LEU3N)
+
+# R-hat and ESS diagnostics
+# R-hat ≈ 1.00 → converged
+# ESS should be reasonably large (e.g., >100–200 per parameter)
+fit.LEU3N$summary(variables=params_LEU3N)
+
+
+# Posterior Density Plots
+# Overlaid densities from multiple chains should match closely
+# If densities differ substantially between chains → poor mixing
+mcmc_dens_overlay(draws_LEU3N, pars = params_LEU3N)
+
+# Auto-correlation 
+# Autocorrelation should decay quickly
+# High autocorrelation → may need more iterations or thinning
+mcmc_acf(draws_LEU3N, pars = params_LEU3N)
+
+# Diagnostics from cmdstan
+fit.LEU3N$cmdstan_diagnose()
+
+```
+
+Parameters
+
+```{r}
+y.LEU3N <- df$LEU3N_2
+X.LEU3N.ADH <- model.matrix(~ LEU3N_0 + hard_drugs + adh_2 + age + BMI + smoke + race + education, data = df)
+N.LEU3N <- nrow(df)
+P.LEU3N <- ncol(X.LEU3N)
+
+m <-c(rep(0, P.LEU3N))
+s <- rep(1000, P.LEU3N)
+sigma_sd <- 1000
+```
+
+```{r}
+# create data list to pass to STAN
+data_list_LEU3N_ADH <- list(
+  N = N.LEU3N,
+  P = P.LEU3N,
+  X = X.LEU3N.ADH,
+  y = y.LEU3N,
+  prior_mean = m,
+  prior_sd = s,
+  sigma_prior_sd = sigma_sd
+)
+```
+
+```{r}
+fit_LEU3N_ADH <- mod$sample(
+  data = data_list_LEU3N_ADH,
+  chains = 4,
+  iter_warmup = 2000,
+  iter_sampling = 10000,
+  seed = 14
+)
+```
+
+```{r}
+fit_LEU3N_ADH$summary(variables=c("beta[1]", "beta[2]","beta[3]", "beta[4]", "beta[5]", "beta[6]", "beta[7]", "beta[8]", "beta[9]", "sigma"))
+```
+
+# Fancier Table of Results of Interest from the Posterior
+
+# Extract posterior draws from cmdstanr fit
+
+```{r}
+draws_LEU3N_ADH <- fit_LEU3N_ADH$draws()  
+
+draws_mat_LEU3N_ADH <- as_draws_matrix(draws_LEU3N_ADH)
+params_LEU3N_ADH <- colnames(draws_mat_LEU3N_ADH)
+
+# Exclude non-parameter columns from summarization: lp__ and log_lik[n]
+params_LEU3N_ADH <- params_LEU3N_ADH[!grepl("lp__|log_lik", params_LEU3N_ADH)]
+
+# Build summary table
+summary_table_LEU3N_ADH <- lapply(params_LEU3N_ADH, function(p) {
+  vals <- as.numeric(draws_mat_LEU3N_ADH[, p])
+  
+  # Monte Carlo standard error
+  # Used to determine if we have run enough iterations
+  # rule of thumb: MCSE should be less than 6.27% of the posterior standard deviation
+  mcse_val <- mcmcse::mcse(vals)$se
+  
+  # Effective sample size
+  ess_val <- ess_bulk(vals)
+  
+  # 95% HPDI
+  hpd <- hdi(vals, ci = 0.95)
+  
+  tibble(
+    Parameter = p,
+    Estimate  = mean(vals),
+    MCSE      = mcse_val,
+    Std_Dev   = sd(vals),
+    HPDI_2.5  = hpd$CI_low,
+    HPDI_97.5 = hpd$CI_high,
+    ESS       = ess_val
+  )
+}) %>% bind_rows()
+
+print(summary_table_LEU3N_ADH)
+
+# check that mcmcse < 6% of posterior SD
+(100*summary_table_LEU3N_ADH$MCSE/summary_table_LEU3N_ADH$Std_Dev) < 6
+
+```
+
+```{r}
+loglik_mat_LEU3N_ADH <- as_draws_matrix(fit_LEU3N_ADH$draws("log_lik"))  # iterations x N
+
+# Get LOO-CV and WAIC
+loo_res_LEU3N_ADH <- loo(loglik_mat_LEU3N_ADH)
+print(loo_res_LEU3N_ADH)
+```
+
+```{r}
+draws_LEU3N_ADH <- as_draws_array(fit_LEU3N_ADH$draws())  # dimensions: iterations x chains x parameters
+draws_df_LEU3N_ADH <- as_draws_df(fit_LEU3N_ADH$draws())  # tidy format for bayesplot / ggplot
+params_LEU3N_ADH <- c("beta[1]", "beta[2]", "beta[3]","beta[4]", "beta[5]", "beta[6]", "beta[7]", "beta[8]", "beta[9]", "sigma")
+
+# Trace plots
+# Trace plots show whether chains are mixing well and exploring the parameter space.
+# Chains should mix well (lines overlap)
+# No long trends (no “stickiness”)
+# Ideally all chains overlap around the same mean
+
+mcmc_trace(draws_LEU3N_ADH, pars = params_LEU3N_ADH)
+
+# R-hat and ESS diagnostics
+# R-hat ≈ 1.00 → converged
+# ESS should be reasonably large (e.g., >100–200 per parameter)
+fit_LEU3N_ADH$summary(variables=params_LEU3N_ADH)
+
+
+# Posterior Density Plots
+# Overlaid densities from multiple chains should match closely
+# If densities differ substantially between chains → poor mixing
+mcmc_dens_overlay(draws_LEU3N_ADH, pars = params_LEU3N_ADH)
+
+# Auto-correlation 
+# Autocorrelation should decay quickly
+# High autocorrelation → may need more iterations or thinning
+mcmc_acf(draws_LEU3N_ADH, pars = params_LEU3N_ADH)
+
+# Diagnostics from cmdstan
+fit_LEU3N_ADH$cmdstan_diagnose()
+
+```
