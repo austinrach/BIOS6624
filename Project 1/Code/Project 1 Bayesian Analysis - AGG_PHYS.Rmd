@@ -1,0 +1,306 @@
+---
+title: "Project 1 Bayesian Analysis - AGG_PHYS"
+author: "Rachel Austin"
+date: "2026-02-28"
+output: html_docuPHYS
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(cmdstanr)
+library(bayesplot)  # diagnostic plots of the MCMC chains
+library(posterior)  # for summarizing posterior draws
+library(bayestestR) # for calculating higest density posterior intervals
+library(mcmcse)     # for calculating MCMCSE's
+library(loo)        # for getting model fit statistics (WAIC and LOO-IC)
+library(dplyr)
+library(tibble)
+```
+
+Bayesian Analysis
+
+```{r}
+mod <- cmdstan_model("/Users/austinra/BIOS6624/Project 1/Code/STAN/linear_regression_half_normal.stan")
+df <- read.xlsx("/Users/austinra/BIOS6624/Project 1/Data Processed/Analysis Dataset.xlsx")
+
+#Change factor variables
+df <- df %>% 
+  mutate(newid = as.character(newid),
+         hard_drugs = factor(hard_drugs),
+         smoke = factor(smoke),
+         education = factor(education),
+         race = factor(race),
+         adh_2 = factor(adh_2))
+```
+
+Following code pulled from <https://github.com/camillemmoore/BIOS6624/blob/main/PSAExample/Code/2_PrelimModels_Gleason_Worksheet3.R> Modified for project 1
+
+Parameters
+
+```{r}
+y.AGG_PHYS <- df$AGG_PHYS_2
+X.AGG_PHYS <- model.matrix(~ AGG_PHYS_0 + hard_drugs + age + BMI + smoke + race + education, data = df)
+N.AGG_PHYS <- nrow(df)
+P.AGG_PHYS <- ncol(X.AGG_PHYS)
+
+m <-c(rep(0, P.AGG_PHYS))
+s <- rep(1000, P.AGG_PHYS)
+sigma_sd <- 1000
+```
+
+```{r}
+# create data list to pass to STAN
+data_list_AGG_PHYS <- list(
+  N = N.AGG_PHYS,
+  P = P.AGG_PHYS,
+  X = X.AGG_PHYS,
+  y = y.AGG_PHYS,
+  prior_mean = m,
+  prior_sd = s,
+  sigma_prior_sd = sigma_sd
+)
+```
+
+```{r}
+fit.AGG_PHYS <- mod$sample(
+  data = data_list_AGG_PHYS,
+  chains = 4,
+  iter_warmup = 2000,
+  iter_sampling = 10000,
+  seed = 14
+)
+```
+
+
+```{r}
+fit.AGG_PHYS$summary(variables=c("beta[1]", "beta[2]", "beta[3]","beta[4]", "beta[5]", "beta[6]", "beta[7]", "beta[8]", "sigma"))
+```
+
+# Fancier Table of Results of Interest from the Posterior
+
+# Extract posterior draws from cmdstanr fit
+
+```{r}
+draws_AGG_PHYS <- fit.AGG_PHYS$draws()  
+
+draws_mat_AGG_PHYS <- as_draws_matrix(draws_AGG_PHYS)
+params_AGG_PHYS <- colnames(draws_mat_AGG_PHYS)
+
+# Exclude non-parameter columns from summarization: lp__ and log_lik[n]
+params_AGG_PHYS <- params_AGG_PHYS[!grepl("lp__|log_lik", params_AGG_PHYS)]
+
+
+# Build summary table
+summary_table_AGG_PHYS <- lapply(params_AGG_PHYS, function(p) {
+  vals <- as.numeric(draws_mat_AGG_PHYS[, p])
+  
+  # Monte Carlo standard error
+  # Used to determine if we have run enough iterations
+  # rule of thumb: MCSE should be less than 6.27% of the posterior standard deviation
+  mcse_val <- mcmcse::mcse(vals)$se
+  
+  # Effective sample size
+  ess_val <- ess_bulk(vals)
+  
+  # 95% HPDI
+  hpd <- hdi(vals, ci = 0.95)
+  
+  tibble(
+    Parameter = p,
+    Estimate  = mean(vals),
+    MCSE      = mcse_val,
+    Std_Dev   = sd(vals),
+    HPDI_2.5  = hpd$CI_low,
+    HPDI_97.5 = hpd$CI_high,
+    ESS       = ess_val
+  )
+}) %>% bind_rows()
+
+print(summary_table_AGG_PHYS)
+
+# check that mcmcse < 6% of posterior SD
+(100*summary_table_AGG_PHYS$MCSE/summary_table_AGG_PHYS$Std_Dev) < 6
+
+```
+
+
+```{r}
+loglik_mat_AGG_PHYS <- as_draws_matrix(fit.AGG_PHYS$draws("log_lik"))  # iterations x N
+
+# Get LOO-CV and WAIC
+loo_res_AGG_PHYS <- loo(loglik_mat_AGG_PHYS)
+print(loo_res_AGG_PHYS)
+```
+
+
+```{r}
+draws_AGG_PHYS <- as_draws_array(fit.AGG_PHYS$draws())  # dimensions: iterations x chains x parameters
+draws_df_AGG_PHYS <- as_draws_df(fit.AGG_PHYS$draws())  # tidy format for bayesplot / ggplot
+params_AGG_PHYS <- c("beta[1]", "beta[2]", "beta[3]","beta[4]", "beta[5]", "beta[6]", "beta[7]", "beta[8]", "sigma")
+
+# Trace plots
+# Trace plots show whether chains are mixing well and exploring the parameter space.
+# Chains should mix well (lines overlap)
+# No long trends (no “stickiness”)
+# Ideally all chains overlap around the same mean
+
+mcmc_trace(draws_AGG_PHYS, pars = params_AGG_PHYS)
+
+# R-hat and ESS diagnostics
+# R-hat ≈ 1.00 → converged
+# ESS should be reasonably large (e.g., >100–200 per parameter)
+fit.AGG_PHYS$summary(variables=params_AGG_PHYS)
+
+
+# Posterior Density Plots
+# Overlaid densities from multiple chains should match closely
+# If densities differ substantially between chains → poor mixing
+mcmc_dens_overlay(draws_AGG_PHYS, pars = params_AGG_PHYS)
+
+# Auto-correlation 
+# Autocorrelation should decay quickly
+# High autocorrelation → may need more iterations or thinning
+mcmc_acf(draws_AGG_PHYS, pars = params_AGG_PHYS)
+
+# Diagnostics from cmdstan
+fit.AGG_PHYS$cmdstan_diagnose()
+
+```
+
+Parameters
+
+```{r}
+y.AGG_PHYS <- df$AGG_PHYS_2
+X.AGG_PHYS.ADH <- model.matrix(~ AGG_PHYS_0 + hard_drugs + adh_2 + age + BMI + smoke + race + education, data = df)
+N.AGG_PHYS <- nrow(df)
+P.AGG_PHYS <- ncol(X.AGG_PHYS.ADH)
+
+m <-c(rep(0, P.AGG_PHYS))
+s <- rep(1000, P.AGG_PHYS)
+sigma_sd <- 1000
+```
+
+```{r}
+# create data list to pass to STAN
+data_list_AGG_PHYS_ADH <- list(
+  N = N.AGG_PHYS,
+  P = P.AGG_PHYS,
+  X = X.AGG_PHYS.ADH,
+  y = y.AGG_PHYS,
+  prior_mean = m,
+  prior_sd = s,
+  sigma_prior_sd = sigma_sd
+)
+```
+
+```{r}
+fit_AGG_PHYS_ADH <- mod$sample(
+  data = data_list_AGG_PHYS_ADH,
+  chains = 4,
+  iter_warmup = 2000,
+  iter_sampling = 10000,
+  seed = 14
+)
+```
+
+
+
+```{r}
+fit_AGG_PHYS_ADH$summary(variables=c("beta[1]", "beta[2]","beta[3]", "beta[4]", "beta[5]", "beta[6]", "beta[7]", "beta[8]", "beta[9]", "sigma"))
+```
+
+
+
+# Fancier Table of Results of Interest from the Posterior
+
+# Extract posterior draws from cmdstanr fit
+
+```{r}
+draws_AGG_PHYS_ADH <- fit_AGG_PHYS_ADH$draws()  
+
+draws_mat_AGG_PHYS_ADH <- as_draws_matrix(draws_AGG_PHYS_ADH)
+params_AGG_PHYS_ADH <- colnames(draws_mat_AGG_PHYS_ADH)
+
+# Exclude non-parameter columns from summarization: lp__ and log_lik[n]
+params_AGG_PHYS_ADH <- params_AGG_PHYS_ADH[!grepl("lp__|log_lik", params_AGG_PHYS_ADH)]
+
+# Build summary table
+summary_table_AGG_PHYS_ADH <- lapply(params_AGG_PHYS_ADH, function(p) {
+  vals <- as.numeric(draws_mat_AGG_PHYS_ADH[, p])
+  
+  # Monte Carlo standard error
+  # Used to determine if we have run enough iterations
+  # rule of thumb: MCSE should be less than 6.27% of the posterior standard deviation
+  mcse_val <- mcmcse::mcse(vals)$se
+  
+  # Effective sample size
+  ess_val <- ess_bulk(vals)
+  
+  # 95% HPDI
+  hpd <- hdi(vals, ci = 0.95)
+  
+  tibble(
+    Parameter = p,
+    Estimate  = mean(vals),
+    MCSE      = mcse_val,
+    Std_Dev   = sd(vals),
+    HPDI_2.5  = hpd$CI_low,
+    HPDI_97.5 = hpd$CI_high,
+    ESS       = ess_val
+  )
+}) %>% bind_rows()
+
+print(summary_table_AGG_PHYS_ADH)
+
+# check that mcmcse < 6% of posterior SD
+(100*summary_table_AGG_PHYS_ADH$MCSE/summary_table_AGG_PHYS_ADH$Std_Dev) < 6
+
+```
+
+
+
+
+```{r}
+loglik_mat_AGG_PHYS_ADH <- as_draws_matrix(fit_AGG_PHYS_ADH$draws("log_lik"))  # iterations x N
+
+# Get LOO-CV and WAIC
+loo_res_AGG_PHYS_ADH <- loo(loglik_mat_AGG_PHYS_ADH)
+print(loo_res_AGG_PHYS_ADH)
+```
+
+```{r}
+draws_AGG_PHYS_ADH <- as_draws_array(fit_AGG_PHYS_ADH$draws())  # dimensions: iterations x chains x parameters
+draws_df_AGG_PHYS_ADH <- as_draws_df(fit_AGG_PHYS_ADH$draws())  # tidy format for bayesplot / ggplot
+params_AGG_PHYS_ADH <- c("beta[1]", "beta[2]", "beta[3]","beta[4]", "beta[5]", "beta[6]", "beta[7]", "beta[8]", "beta[9]", "sigma")
+
+# Trace plots
+# Trace plots show whether chains are mixing well and exploring the parameter space.
+# Chains should mix well (lines overlap)
+# No long trends (no “stickiness”)
+# Ideally all chains overlap around the same mean
+
+mcmc_trace(draws_AGG_PHYS_ADH, pars = params_AGG_PHYS_ADH)
+
+# R-hat and ESS diagnostics
+# R-hat ≈ 1.00 → converged
+# ESS should be reasonably large (e.g., >100–200 per parameter)
+fit_AGG_PHYS_ADH$summary(variables=params_AGG_PHYS_ADH)
+
+
+# Posterior Density Plots
+# Overlaid densities from multiple chains should match closely
+# If densities differ substantially between chains → poor mixing
+mcmc_dens_overlay(draws_AGG_PHYS_ADH, pars = params_AGG_PHYS_ADH)
+
+# Auto-correlation 
+# Autocorrelation should decay quickly
+# High autocorrelation → may need more iterations or thinning
+mcmc_acf(draws_AGG_PHYS_ADH, pars = params_AGG_PHYS_ADH)
+
+# Diagnostics from cmdstan
+fit_AGG_PHYS_ADH$cmdstan_diagnose()
+```
