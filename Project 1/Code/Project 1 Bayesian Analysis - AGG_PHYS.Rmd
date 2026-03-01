@@ -128,6 +128,24 @@ print(summary_table_AGG_PHYS)
 ```
 
 
+Checking for clinically meaningful difference (plus/minus 2) of AGG_PHYS score for hard drug users 
+```{r}
+
+draws_df_AGG_PHYS <- as_draws_df(fit.AGG_PHYS$draws())
+
+# double checking find column index of hard drugs
+k <- which(colnames(X.AGG_PHYS) == "hard_drugs1")
+
+beta_name <- paste0("beta[", k, "]")
+
+# posterior probability of clinically meaningful difference in physical QOL score between drug users
+prop.table(table(draws_df_AGG_PHYS$'beta[3]' > 2 | draws_df_AGG_PHYS$'beta[3]' < -2))
+
+#credible interval
+ci(draws_df_AGG_PHYS[[beta_name]], ci = 0.95)
+```
+The posterior mean difference in AGG_PHYS score between hard drug users and non-users was negative, with a 95% credible interval from −5.59 to −0.29. The posterior probability that the magnitude of the difference exceeds 2 points was 75.9%, indicating moderate evidence for a clinically meaningful reduction in AGG_PHYS score among hard drug users. There remains approximately 24% posterior probability that the true difference is smaller than the clinically meaningful threshold.
+
 ```{r}
 loglik_mat_AGG_PHYS <- as_draws_matrix(fit.AGG_PHYS$draws("log_lik"))  # iterations x N
 
@@ -261,8 +279,25 @@ print(summary_table_AGG_PHYS_ADH)
 
 ```
 
+Checking for clinically meaningful difference of physical QOL score- 2
 
 
+```{r}
+
+draws_df_AGG_PHYS_ADH <- as_draws_df(fit_AGG_PHYS_ADH$draws())
+
+# double checking find column index of hard drugs
+k <- which(colnames(X.AGG_PHYS.ADH) == "hard_drugs1")
+
+beta_name <- paste0("beta[", k, "]")
+
+# posterior probability of clinically meaningful difference in physical QOL score between drug users
+prop.table(table(draws_df_AGG_PHYS_ADH$'beta[3]' > 2 | draws_df_AGG_PHYS_ADH$'beta[3]' < -2))
+
+#credible interval
+ci(draws_df_AGG_PHYS_ADH[[beta_name]], ci = 0.95)
+```
+After adjusting for adherence level, the posterior mean difference in AGG_PHYS score between hard drug users and non-users was negative, with a 95% credible interval from −5.89 to −0.56. The posterior probability that the magnitude of the difference exceeds 2 points was 82.0%, indicating moderate evidence for a clinically meaningful reduction in AGG_PHYS score among hard drug users. There remains approximately 18% posterior probability that the true difference is smaller than the clinically meaningful threshold.
 
 ```{r}
 loglik_mat_AGG_PHYS_ADH <- as_draws_matrix(fit_AGG_PHYS_ADH$draws("log_lik"))  # iterations x N
