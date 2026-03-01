@@ -134,7 +134,7 @@ k <- which(colnames(X.LEU3N) == "hard_drugs1")
 
 beta_name <- paste0("beta[", k, "]")
 
-# posterior probability of clinically meaningful difference in log vload between drug users
+# posterior probability of clinically meaningful difference in CD4 count between drug users
 prop.table(table(draws_df_LEU3N$'beta[3]' > 50 | draws_df_LEU3N$'beta[3]' < -50))
 
 #credible interval
@@ -285,7 +285,7 @@ k <- which(colnames(X.LEU3N.ADH) == "hard_drugs1")
 
 beta_name <- paste0("beta[", k, "]")
 
-# posterior probability of clinically meaningful difference in log vload between drug users
+# posterior probability of clinically meaningful difference in CD4 count between drug users
 prop.table(table(draws_df_LEU3N_ADH$'beta[3]' > 50 | draws_df_LEU3N_ADH$'beta[3]' < -50))
 
 #credible interval
