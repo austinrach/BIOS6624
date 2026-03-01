@@ -54,7 +54,7 @@ Hard drug use, adherence, covariates
 describe the change between the two models, focusing on the covariates
 
 ```{r}
-df <- read.xlsx("Project 1/Data Processed/Analysis Dataset.xlsx")
+df <- readxl::read_excel("/Users/austinra/BIOS6624/Project 1/Data Processed/Analysis Dataset.xlsx")
 
 #Change factor variables
 df <- df %>% 
