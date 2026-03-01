@@ -80,7 +80,7 @@ fit.VLOAD$summary(variables=c("beta[1]", "beta[2]","beta[3]", "beta[4]", "beta[5
 # Fancier Table of Results of Interest from the Posterior
 # Extracting posterior draws from cmdstanr fit
 ```{r}
-draws.VLOAD <- fit$draws()  
+draws.VLOAD <- fit.VLOAD$draws()  
 
 draws_mat_VLOAD <- as_draws_matrix(draws.VLOAD)
 params_VLOAD <- colnames(draws_mat_VLOAD)
@@ -122,6 +122,21 @@ print(summary_table_VLOAD)
 
 ```
 
+Checking for clinically meaningful difference in log VLOAD between hard drug users
+```{r}
+draws_df_VLOAD <- as_draws_df(fit.VLOAD$draws())
+
+# double checking find column index of hard drugs
+k <- which(colnames(X.VLOAD) == "hard_drugs1")
+
+beta_name <- paste0("beta[", k, "]")
+
+# posterior probability of clinically meaningful difference in log vload between drug users
+prop.table(table(draws_df_VLOAD$'beta[3]' > 0.5 | draws_df_VLOAD$'beta[3]' < -0.5))
+
+```
+There is a 27.9% posterior probability that hard drug use is associated with at least a 0.5 log-unit difference in viral load. There is little evidence of a meaningful effect.
+
 LOO WAIC
 ```{r}
 loglik_mat_VLOAD <- as_draws_matrix(fit.VLOAD$draws("log_lik"))  # iterations x N
@@ -132,8 +147,8 @@ print(loo_res_VLOAD)
 ```
 
 ```{r}
-draws_VLOAD <- as_draws_array(fit$draws())  # dimensions: iterations x chains x parameters
-draws_df_VLOAD <- as_draws_df(fit$draws())  # tidy format for bayesplot / ggplot
+draws_VLOAD <- as_draws_array(fit.VLOAD$draws())  # dimensions: iterations x chains x parameters
+draws_df_VLOAD <- as_draws_df(fit.VLOAD$draws())  # tidy format for bayesplot / ggplot
 params_VLOAD <- c("beta[1]", "beta[2]", "beta[3]","beta[4]", "beta[5]", "beta[6]", "beta[7]", "beta[8]", "sigma")
 
 mcmc_trace(draws_VLOAD, pars = params_VLOAD)
@@ -279,3 +294,19 @@ mcmc_acf(draws_VLOAD_ADH, pars = params_VLOAD_ADH)
 fit_VLOAD_ADH$cmdstan_diagnose()
 
 ```
+
+
+Checking for clinically meaningful difference in log VLOAD between hard drug users adjusted for adherence
+```{r}
+draws_df_VLOAD_ADH <- as_draws_df(fit_VLOAD_ADH$draws())
+
+# double checking find column index of hard drugs
+k <- which(colnames(X.VLOAD.ADH) == "hard_drugs1")
+
+beta_name <- paste0("beta[", k, "]")
+
+# posterior probability of clinically meaningful difference in log vload between drug users
+prop.table(table(draws_df_VLOAD_ADH$'beta[3]' > 0.5 | draws_df_VLOAD_ADH$'beta[3]' < -0.5))
+
+```
+There is a 27.03% posterior probability that hard drug use is associated with at least a 0.5 log-unit difference in viral load. There is little evidence of a meaningful effect after adjusting for adherence.
