@@ -122,6 +122,29 @@ print(summary_table_LEU3N)
 
 ```
 
+
+
+Checking for clinically meaningful difference of LEU3N for hard drug users (50)
+```{r}
+
+draws_df_LEU3N <- as_draws_df(fit.LEU3N$draws())
+
+# double checking find column index of hard drugs
+k <- which(colnames(X.LEU3N) == "hard_drugs1")
+
+beta_name <- paste0("beta[", k, "]")
+
+# posterior probability of clinically meaningful difference in log vload between drug users
+prop.table(table(draws_df_LEU3N$'beta[3]' > 50 | draws_df_LEU3N$'beta[3]' < -50))
+
+#credible interval
+ci(draws_df_LEU3N[[beta_name]], ci = 0.95)
+
+
+```
+
+The posterior mean difference in CD4 count between hard drug users and non-users was negative, with a 95% credible interval from −221.9 to −100.2 cells. The posterior probability that the magnitude of the difference exceeds 50 cells was 99.97%, indicating very strong evidence of a clinically meaningful reduction in CD4 count among hard drug users.
+
 ```{r}
 loglik_mat_LEU3N <- as_draws_matrix(fit.LEU3N$draws("log_lik"))  # iterations x N
 
@@ -249,6 +272,27 @@ print(summary_table_LEU3N_ADH)
 (100*summary_table_LEU3N_ADH$MCSE/summary_table_LEU3N_ADH$Std_Dev) < 6
 
 ```
+
+
+
+Checking for clinically meaningful difference of LEU3N for hard drug users (50) adjusting for adherence
+```{r}
+
+draws_df_LEU3N_ADH <- as_draws_df(fit_LEU3N_ADH$draws())
+
+# double checking find column index of hard drugs
+k <- which(colnames(X.LEU3N.ADH) == "hard_drugs1")
+
+beta_name <- paste0("beta[", k, "]")
+
+# posterior probability of clinically meaningful difference in log vload between drug users
+prop.table(table(draws_df_LEU3N_ADH$'beta[3]' > 50 | draws_df_LEU3N_ADH$'beta[3]' < -50))
+
+#credible interval
+ci(draws_df_LEU3N_ADH[[beta_name]], ci = 0.95)
+```
+
+After adjusting for adherence level, the posterior mean difference in CD4 count between hard drug users and non-users was negative, with a 95% credible interval from −228.4 to −107.2 cells. The posterior probability that the magnitude of the difference exceeds 50 cells was 99.99%, indicating extremely strong evidence that hard drug use is associated with a clinically meaningful decrease in CD4 count, conditional on adherence.
 
 ```{r}
 loglik_mat_LEU3N_ADH <- as_draws_matrix(fit_LEU3N_ADH$draws("log_lik"))  # iterations x N
