@@ -150,7 +150,7 @@ k <- which(colnames(X.AGG_MENT) == "hard_drugs1")
 
 beta_name <- paste0("beta[", k, "]")
 
-# posterior probability of clinically meaningful difference in log vload between drug users
+# posterior probability of clinically meaningful difference in mental QOL score between drug users
 prop.table(table(draws_df_AGG_MENT$'beta[3]' > 2 | draws_df_AGG_MENT$'beta[3]' < -2))
 
 #credible interval
@@ -313,7 +313,7 @@ k <- which(colnames(X.AGG_MENT.ADH) == "hard_drugs1")
 
 beta_name <- paste0("beta[", k, "]")
 
-# posterior probability of clinically meaningful difference in log vload between drug users
+# posterior probability of clinically meaningful difference in mental QOL score between drug users
 prop.table(table(draws_df_AGG_MENT_ADH$'beta[3]' > 2 | draws_df_AGG_MENT_ADH$'beta[3]' < -2))
 
 #credible interval
