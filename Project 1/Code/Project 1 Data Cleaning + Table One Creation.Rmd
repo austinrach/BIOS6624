@@ -94,7 +94,7 @@ df_all4 <- df_all4 %>% mutate(bmi = case_when(
   TRUE ~ BMI
 ))
 #Create logvload variable
-df_all4$log_vload <- log(df_all4$VLOAD)
+df_all4$log_vload <- log10(df_all4$VLOAD)
 ```
 
 Subset dataset down to baseline (year 0) covariates and then year 0 and year 2 values both displayed for outcomes
