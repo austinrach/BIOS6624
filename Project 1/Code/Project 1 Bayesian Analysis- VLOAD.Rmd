@@ -38,7 +38,7 @@ Following code pulled from https://github.com/camillemmoore/BIOS6624/blob/main/P
 Parameters
 ```{r}
 y.VLOAD <- df$log_vload_2 
-X.VLOAD <- model.matrix(~ log_vload_0 + hard_drugs + age + BMI + smoke + race + education, data = df)
+X.VLOAD <- model.matrix(~ log_vload_0 + hard_drugs + age + bmi + smoke + race + education, data = df)
 N.VLOAD <- nrow(df)
 P.VLOAD <- 8
 
@@ -178,7 +178,7 @@ Parameters for model with adherence
 
 ```{r}
 y.VLOAD <- df$log_vload_2 
-X.VLOAD.ADH <- model.matrix(~ log_vload_0 + hard_drugs + adh_2 + age + BMI + smoke + race + education, data = df)
+X.VLOAD.ADH <- model.matrix(~ log_vload_0 + hard_drugs + adh_2 + age + bmi + smoke + race + education, data = df)
 N.VLOAD <- nrow(df)
 P.VLOAD <- ncol(X.VLOAD.ADH)
 
@@ -310,3 +310,9 @@ prop.table(table(draws_df_VLOAD_ADH$'beta[3]' > 0.5 | draws_df_VLOAD_ADH$'beta[3
 
 ```
 There is a 27.03% posterior probability that hard drug use is associated with at least a 0.5 log-unit difference in viral load. There is little evidence of a meaningful effect after adjusting for adherence.
+
+```{r}
+saveRDS(summary_table_VLOAD, file = "/Users/austinra/BIOS6624/Project 1/Data Processed/summary_table_vload.rds")
+saveRDS(summary_table_VLOAD_ADH, file = "/Users/austinra/BIOS6624/Project 1/Data Processed/summary_table_vload_adh.rds")
+```
+
