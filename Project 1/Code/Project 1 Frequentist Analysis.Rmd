@@ -71,54 +71,65 @@ Frequentist Approach:
 
 Laboratory Outcome: VLOAD
 ```{r}
-vload.mod <- lm(log_vload_2 ~ log_vload_0 + hard_drugs + age + BMI + smoke + race + education,
+vload.mod <- lm(log_vload_2 ~ log_vload_0 + hard_drugs + age + bmi + smoke + race + education,
   data = df
 )
 summary(vload.mod)
 ```
 Laboratory Outcome: VLOAD with ADH
 ```{r}
-vload.mod.adh <- lm(log_vload_2 ~ log_vload_0 + hard_drugs + adh_2 + age + BMI + smoke + race + education,
+vload.mod.adh <- lm(log_vload_2 ~ log_vload_0 + hard_drugs + adh_2 + age + bmi + smoke + race + education,
   data = df)
 
 summary(vload.mod.adh)
 ```
 Laboratory Outcome: LEU3N 
 ```{r}
-leu3n.mod <- lm(LEU3N_2 ~ LEU3N_0 + hard_drugs + age + BMI + smoke + race + education, data = df)
+leu3n.mod <- lm(LEU3N_2 ~ LEU3N_0 + hard_drugs + age + bmi + smoke + race + education, data = df)
 summary(leu3n.mod)
 ```
 
 Laboratory Outcome: LEU3N + ADH 
 ```{r}
-leu3n.mod.adh <- lm(LEU3N_2 ~ LEU3N_0 + hard_drugs + adh_2 + age + BMI + smoke + race + education, data = df)
+leu3n.mod.adh <- lm(LEU3N_2 ~ LEU3N_0 + hard_drugs + adh_2 + age + bmi + smoke + race + education, data = df)
 summary(leu3n.mod.adh)
 ```
 
 QOL Outcome: AGG_MENT
 ```{r}
-agg_ment.mod <- lm(AGG_MENT_2 ~ AGG_MENT_0 + hard_drugs + age + BMI + smoke + race + education, data = df)
+agg_ment.mod <- lm(AGG_MENT_2 ~ AGG_MENT_0 + hard_drugs + age + bmi + smoke + race + education, data = df)
 summary(agg_ment.mod)
 ```
 
 QOL Outcome: AGG_MENT + ADH
 ```{r}
-agg_ment.mod.adh <- lm(AGG_MENT_2 ~ AGG_MENT_0 + hard_drugs + adh_2 + age + BMI + smoke + race + education, data = df)
+agg_ment.mod.adh <- lm(AGG_MENT_2 ~ AGG_MENT_0 + hard_drugs + adh_2 + age + bmi + smoke + race + education, data = df)
 summary(agg_ment.mod.adh)
 ```
 
 
 QOL Outcome: AGG_PHYS 
 ```{r}
-agg_phys.mod <- lm(AGG_PHYS_2 ~ AGG_PHYS_0 + hard_drugs + age + BMI + smoke + race + education, data = df)
+agg_phys.mod <- lm(AGG_PHYS_2 ~ AGG_PHYS_0 + hard_drugs + age + bmi + smoke + race + education, data = df)
 summary(agg_phys.mod)
 ```
 
 
 QOL Outcome: AGG_PHYS + ADH
 ```{r}
-agg_phys.mod.adh <- lm(AGG_MENT_2 ~ AGG_MENT_0 + hard_drugs + adh_2 + age + BMI + smoke + race + education, data = df)
+agg_phys.mod.adh <- lm(AGG_MENT_2 ~ AGG_MENT_0 + hard_drugs + adh_2 + age + bmi + smoke + race + education, data = df)
 summary(agg_phys.mod.adh)
+```
+```{r}
+saveRDS(vload.mod, file = "/Users/austinra/BIOS6624/Project 1/Data Processed/frequentist.vload.mod.rds")
+saveRDS(vload.mod.adh, file = "/Users/austinra/BIOS6624/Project 1/Data Processed/frequentist.vload.mod.adh.rds")
+saveRDS(leu3n.mod, file = "/Users/austinra/BIOS6624/Project 1/Data Processed/frequentist.leu3n.mod.rds")
+saveRDS(leu3n.mod.adh, file = "/Users/austinra/BIOS6624/Project 1/Data Processed/frequentist.leu3n.mod.adh.rds")
+saveRDS(agg_ment.mod, file = "/Users/austinra/BIOS6624/Project 1/Data Processed/frequentist.aggment.mod.rds")
+saveRDS(agg_ment.mod.adh, file = "/Users/austinra/BIOS6624/Project 1/Data Processed/frequentist.aggment.mod.adh.rds")
+saveRDS(agg_phys.mod, file = "/Users/austinra/BIOS6624/Project 1/Data Processed/frequentist.aggphys.mod.rds")
+saveRDS(agg_phys.mod.adh, file = "/Users/austinra/BIOS6624/Project 1/Data Processed/frequentist.aggphys.mod.adh.rds")
+
 ```
 
 
