@@ -19,6 +19,7 @@ library(mcmcse)     # for calculating MCMCSE's
 library(loo)        # for getting model fit statistics (WAIC and LOO-IC)
 library(dplyr)
 library(tibble)
+library(openxlsx)
 ```
 
 Bayesian Analysis
@@ -141,10 +142,9 @@ beta_name <- paste0("beta[", k, "]")
 # posterior probability of clinically meaningful difference in physical QOL score between drug users
 prop.table(table(draws_df_AGG_PHYS$'beta[3]' > 2 | draws_df_AGG_PHYS$'beta[3]' < -2))
 
-#credible interval
-ci(draws_df_AGG_PHYS[[beta_name]], ci = 0.95)
+pclin_AGG_PHYS <- mean(abs(draws_df_AGG_PHYS[[beta_name]]) > 2)
 ```
-The posterior mean difference in AGG_PHYS score between hard drug users and non-users was negative, with a 95% credible interval from −5.59 to −0.29. The posterior probability that the magnitude of the difference exceeds 2 points was 75.9%, indicating moderate evidence for a clinically meaningful reduction in AGG_PHYS score among hard drug users. There remains approximately 24% posterior probability that the true difference is smaller than the clinically meaningful threshold.
+The posterior probability that the magnitude of the difference exceeds 2 points was 83.6%, indicating strong evidence for a clinically meaningful reduction in AGG_PHYS score among hard drug users. There remains approximately  16.4% posterior probability that the true difference is smaller than the clinically meaningful threshold.
 
 ```{r}
 loglik_mat_AGG_PHYS <- as_draws_matrix(fit.AGG_PHYS$draws("log_lik"))  # iterations x N
@@ -294,10 +294,9 @@ beta_name <- paste0("beta[", k, "]")
 # posterior probability of clinically meaningful difference in physical QOL score between drug users
 prop.table(table(draws_df_AGG_PHYS_ADH$'beta[3]' > 2 | draws_df_AGG_PHYS_ADH$'beta[3]' < -2))
 
-#credible interval
-ci(draws_df_AGG_PHYS_ADH[[beta_name]], ci = 0.95)
+pclin_AGG_PHYS_ADH <- mean(abs(draws_df_AGG_PHYS_ADH[[beta_name]]) > 2)
 ```
-After adjusting for adherence level, the posterior mean difference in AGG_PHYS score between hard drug users and non-users was negative, with a 95% credible interval from −5.89 to −0.56. The posterior probability that the magnitude of the difference exceeds 2 points was 82.0%, indicating moderate evidence for a clinically meaningful reduction in AGG_PHYS score among hard drug users. There remains approximately 18% posterior probability that the true difference is smaller than the clinically meaningful threshold.
+The posterior probability that the magnitude of the difference exceeds 2 points was 86.9%, indicating strong evidence for a clinically meaningful reduction in AGG_PHYS score among hard drug users controlling for adherence. There remains approximately 13.1% posterior probability that the true difference is smaller than the clinically meaningful threshold.
 
 ```{r}
 loglik_mat_AGG_PHYS_ADH <- as_draws_matrix(fit_AGG_PHYS_ADH$draws("log_lik"))  # iterations x N
@@ -343,5 +342,27 @@ fit_AGG_PHYS_ADH$cmdstan_diagnose()
 ```{r}
 saveRDS(summary_table_AGG_PHYS, file = "/Users/austinra/BIOS6624/Project 1/Data Processed/summary_table_agg_phys.rds")
 saveRDS(summary_table_AGG_PHYS_ADH, file = "/Users/austinra/BIOS6624/Project 1/Data Processed/summary_table_agg_phys_adh.rds")
+
+saveRDS(list(
+    outcome = "AGG_PHYS",
+    model = "primary",
+    beta_name = beta_name,
+    p_clin = pclin_AGG_PHYS,
+    loo = loo_res_AGG_PHYS
+  ),
+  file = file.path("/Users/austinra/BIOS6624/Project 1/Data Processed/bayes_results_agg_phys_primary.rds")
+)
+
+
+saveRDS(
+  list(
+    outcome = "AGG_PHYS",
+    model = "adh",
+    beta_name = beta_name,
+    p_clin = pclin_AGG_PHYS_ADH,
+    loo = loo_res_AGG_PHYS_ADH
+  ),
+  file = file.path("/Users/austinra/BIOS6624/Project 1/Data Processed/bayes_results_agg_phys_adh.rds")
+)
 ```
 

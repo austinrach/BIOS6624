@@ -7,11 +7,6 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-```
-
-
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
 library(cmdstanr)
 library(bayesplot)  # diagnostic plots of the MCMC chains
 library(posterior)  # for summarizing posterior draws
@@ -20,6 +15,7 @@ library(mcmcse)     # for calculating MCMCSE's
 library(loo)        # for getting model fit statistics (WAIC and LOO-IC)
 library(dplyr)
 library(tibble)
+library(openxlsx)
 ```
 
 Bayesian Analysis
@@ -126,19 +122,7 @@ print(summary_table_AGG_MENT)
 (100*summary_table_AGG_MENT$MCSE/summary_table_AGG_MENT$Std_Dev) < 6
 
 ```
-Checking for clinically meaningful difference - 2 
-```{r}
 
-draws_mat_AGG_MENT <- as_draws_matrix(fit.AGG_MENT$draws())
-
-k <- which(colnames(X.AGG_MENT) == "hard_drugs1")  
-beta_name <- paste0("beta[", k, "]")
-
-vals <- as.numeric(draws_mat_AGG_MENT[, beta_name])
-
-prob_mean_diff <- mean(vals > 2)
-prob_mean_diff
-```
 
 Checking for clinically meaningful difference (plus/minus 2) of AGG_MENT score for hard drug users 
 ```{r}
@@ -153,10 +137,9 @@ beta_name <- paste0("beta[", k, "]")
 # posterior probability of clinically meaningful difference in mental QOL score between drug users
 prop.table(table(draws_df_AGG_MENT$'beta[3]' > 2 | draws_df_AGG_MENT$'beta[3]' < -2))
 
-#credible interval
-ci(draws_df_AGG_MENT[[beta_name]], ci = 0.95)
+pclin_AGG_MENT <- mean(abs(draws_df_AGG_MENT[[beta_name]]) > 2)
 ```
-The posterior mean difference in AGG_MENT score between hard drug users and non-users was uncertain, with a 95% credible interval from −3.58 to 3.14. The posterior probability that the magnitude of the difference exceeds 2 points was 25.2%, indicating weak evidence for a clinically meaningful association.
+The posterior probability that the magnitude of the difference exceeds 2 points was 26.1%, indicating weak evidence for a clinically meaningful association.
 
 ```{r}
 loglik_mat_AGG_MENT <- as_draws_matrix(fit.AGG_MENT$draws("log_lik"))  # iterations x N
@@ -302,10 +285,9 @@ beta_name <- paste0("beta[", k, "]")
 # posterior probability of clinically meaningful difference in mental QOL score between drug users
 prop.table(table(draws_df_AGG_MENT_ADH$'beta[3]' > 2 | draws_df_AGG_MENT_ADH$'beta[3]' < -2))
 
-#credible interval
-ci(draws_df_AGG_MENT_ADH[[beta_name]], ci = 0.95)
+pclin_AGG_MENT_ADH <- mean(abs(draws_df_AGG_MENT_ADH[[beta_name]]) > 2)
 ```
-After adjusting for adherence level, the posterior mean difference in AGG_MENT score between hard drug users and non-users was uncertain, with a 95% credible interval from −3.95 to 2.89. The posterior probability that the magnitude of the difference exceeds 2 points was 27.3%, indicating weak evidence for a clinically meaningful association. There is approximately 73% posterior probability that the true difference is smaller than the clinically meaningful threshold of 2 points.
+The posterior probability that the magnitude of the difference exceeds 2 points was 28.1%, indicating weak evidence for a clinically meaningful association. There is approximately 73% posterior probability that the true difference is smaller than the clinically meaningful threshold of 2 points.
 
 ```{r}
 loglik_mat_AGG_MENT_ADH <- as_draws_matrix(fit_AGG_MENT_ADH$draws("log_lik"))  # iterations x N
@@ -352,5 +334,29 @@ fit_AGG_MENT_ADH$cmdstan_diagnose()
 ```{r}
 saveRDS(summary_table_AGG_MENT, file = "/Users/austinra/BIOS6624/Project 1/Data Processed/summary_table_agg_ment.rds")
 saveRDS(summary_table_AGG_MENT_ADH, file = "/Users/austinra/BIOS6624/Project 1/Data Processed/summary_table_agg_ment_adh.rds")
+
+
+saveRDS(
+  list(
+    outcome = "AGG_MENT",
+    model = "primary",
+    beta_name = beta_name,
+    p_clin = pclin_AGG_MENT,
+    loo = loo_res_AGG_MENT
+  ),
+  file = file.path("/Users/austinra/BIOS6624/Project 1/Data Processed/bayes_results_agg_ment_primary.rds")
+)
+
+
+saveRDS(
+  list(
+    outcome = "AGG_MENT",
+    model = "adh",
+    beta_name = beta_name,
+    p_clin = pclin_AGG_MENT_ADH,
+    loo = loo_res_AGG_MENT_ADH
+  ),
+  file = file.path("/Users/austinra/BIOS6624/Project 1/Data Processed/bayes_results_agg_ment_adh.rds")
+)
 ```
 
