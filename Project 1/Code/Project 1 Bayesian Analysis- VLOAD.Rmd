@@ -137,7 +137,7 @@ prop.table(table(draws_df_VLOAD$'beta[3]' > 0.5 | draws_df_VLOAD$'beta[3]' < -0.
 pclin_VLOAD <- mean(abs(draws_df_VLOAD[[beta_name]]) > 0.5)
 
 ```
-There is a 27.9% posterior probability that hard drug use is associated with at least a 0.5 log-unit difference in viral load. There is little evidence of a meaningful effect.
+There is a 1.8% posterior probability that hard drug use is associated with at least a 0.5 log-unit difference in viral load. There is little evidence of a meaningful effect.
 
 LOO WAIC
 ```{r}
