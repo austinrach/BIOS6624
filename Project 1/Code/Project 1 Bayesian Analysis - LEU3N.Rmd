@@ -39,7 +39,7 @@ Parameters
 
 ```{r}
 y.LEU3N <- df$LEU3N_2
-X.LEU3N <- model.matrix(~ LEU3N_0 + hard_drugs + age + BMI + smoke + race + education, data = df)
+X.LEU3N <- model.matrix(~ LEU3N_0 + hard_drugs + age + bmi + smoke + race + education, data = df)
 N.LEU3N <- nrow(df)
 P.LEU3N <- ncol(X.LEU3N)
 
@@ -191,7 +191,7 @@ Parameters
 
 ```{r}
 y.LEU3N <- df$LEU3N_2
-X.LEU3N.ADH <- model.matrix(~ LEU3N_0 + hard_drugs + adh_2 + age + BMI + smoke + race + education, data = df)
+X.LEU3N.ADH <- model.matrix(~ LEU3N_0 + hard_drugs + adh_2 + age + bmi + smoke + race + education, data = df)
 N.LEU3N <- nrow(df)
 P.LEU3N <- ncol(X.LEU3N.ADH)
 
@@ -335,3 +335,9 @@ mcmc_acf(draws_LEU3N_ADH, pars = params_LEU3N_ADH)
 fit_LEU3N_ADH$cmdstan_diagnose()
 
 ```
+
+```{r}
+saveRDS(summary_table_LEU3N, file = "/Users/austinra/BIOS6624/Project 1/Data Processed/summary_table_leu3n.rds")
+saveRDS(summary_table_LEU3N_ADH, file = "/Users/austinra/BIOS6624/Project 1/Data Processed/summary_table_leu3n_adh.rds")
+```
+
