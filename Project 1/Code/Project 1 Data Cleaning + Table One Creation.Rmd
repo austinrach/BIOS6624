@@ -2,7 +2,16 @@
 title: "Project 1 Dataset Creation"
 author: "Rachel Austin"
 date: "2026-02-25"
-output: html_document
+output:
+  pdf_document:
+    latex_engine: xelatex
+  html_document:
+    df_print: paged
+geometry: margin=0.1in
+header-includes:
+- \usepackage{booktabs}
+- \usepackage{threeparttable}
+- \usepackage{longtable}
 ---
 
 
@@ -16,7 +25,7 @@ library(gt)
 ```
 
 
-```{r}
+```{r,  include=FALSE}
 df <- read.csv("/Users/austinra/BIOS6624/Project 1/Data Raw/hiv_6624_final.csv")
 #Filter dataset to visit years of interest
 df <- filter(df, years == 0  |years == 2)
@@ -25,7 +34,7 @@ df <- select(df, newid, years, VLOAD, LEU3N, AGG_MENT, AGG_PHYS, hard_drugs, ADH
 ```
 
 
-```{r}
+```{r,  include=FALSE}
 #Determine paired outcomes 
 paired_all4 <- df %>%    
   group_by(newid) %>%
@@ -47,7 +56,7 @@ df_all4 <- df %>%
 
 
 Collapsing factor variables
-```{r}
+```{r,  include=FALSE}
 #Collapse education
 #0 is no college degree, 1 is college degree and higher
 df_all4 <- df_all4 %>%
@@ -98,7 +107,7 @@ df_all4$log_vload <- log10(df_all4$VLOAD)
 ```
 
 Subset dataset down to baseline (year 0) covariates and then year 0 and year 2 values both displayed for outcomes
-```{r}
+```{r,  include=FALSE}
 #Baseline dataset
 df_base <- df_all4 %>%
   filter(years == 0) %>%
@@ -135,7 +144,7 @@ openxlsx::write.xlsx(df_analysis, "/Users/austinra/BIOS6624/Project 1/Data Proce
 
 Table One Creation
 
-```{r}
+```{r,  include=FALSE}
 
 
 #Add labels to factors
@@ -163,6 +172,8 @@ df_analysis <- df_analysis %>%
 #Add labels
 label(df_analysis$VLOAD_0)    <- "Viral Load at Baseline"
 label(df_analysis$VLOAD_2)    <- "Viral Load at Year 2"
+label(df_analysis$log_vload_0)    <- "Log Viral Load at Baseline"
+label(df_analysis$log_vload_2)    <- "Log Viral Load at Year 2"
 label(df_analysis$LEU3N_0)    <- "Number of CD4 Positive Cells at Baseline"
 label(df_analysis$LEU3N_2)    <- "Number of CD4 Positive Cells at Year 2"
 label(df_analysis$AGG_PHYS_0)   <- "Aggregate Physical Quality of Life Score at Baseline"
@@ -177,9 +188,12 @@ label(df_analysis$smoke)      <- "Smoking Status"
 label(df_analysis$education)  <- "Education Level"
 label(df_analysis$race)       <- "Race"
 
+```
+```{r,  include=FALSE}
+
 tbl <- df_analysis %>%
   select(
-    VLOAD_0, VLOAD_2, LEU3N_0, LEU3N_2,
+    log_vload_0, log_vload_2, LEU3N_0, LEU3N_2,
     AGG_PHYS_0, AGG_PHYS_2, AGG_MENT_0, AGG_MENT_2,
     adh_2, age, bmi, smoke, education, race, hard_drugs
   ) %>%
@@ -193,12 +207,22 @@ tbl <- df_analysis %>%
     missing = "ifany",
     missing_text = "Missing"
   ) %>%
-  add_overall(last = TRUE) %>%          
+  add_overall(last = TRUE) %>%
   modify_header(label ~ "**Characteristic**") %>%
   bold_labels() %>%
-  modify_caption("**Table 1. Baseline characteristics by hard drug use**") %>%
-  as_gt()
+  modify_caption("**Baseline characteristics by hard drug use**")
+tbl_latex <- tbl %>%
+  as_kable_extra(format = "latex", booktabs = TRUE, longtable = TRUE) %>%
+  kableExtra::kable_styling(
+    latex_options = c("repeat_header"),
+    font_size = 9
+  ) %>% kableExtra::footnote(
+    general = "Viral load values are presented on the log10 scale.",
+    threeparttable = TRUE
+  )
+```
 
-tbl
+```{r results='asis'}
+tbl_latex 
 ```
 
