@@ -1,0 +1,126 @@
+---
+title: "Project 1 Report Figures"
+author: "Rachel Austin"
+date: "2026-03-02"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(tibble)
+library(stringr)
+
+```
+
+```{r}
+data_dir <- "/Users/austinra/BIOS6624/Project 1/Data Processed"
+
+# Frequentist models
+vload.mod        <- readRDS(file.path(data_dir, "frequentist.vload.mod.rds"))
+vload.mod.adh    <- readRDS(file.path(data_dir, "frequentist.vload.mod.adh.rds"))
+
+leu3n.mod        <- readRDS(file.path(data_dir, "frequentist.leu3n.mod.rds"))
+leu3n.mod.adh    <- readRDS(file.path(data_dir, "frequentist.leu3n.mod.adh.rds"))
+
+agg_ment.mod     <- readRDS(file.path(data_dir, "frequentist.aggment.mod.rds"))
+agg_ment.mod.adh <- readRDS(file.path(data_dir, "frequentist.aggment.mod.adh.rds"))
+
+agg_phys.mod     <- readRDS(file.path(data_dir, "frequentist.aggphys.mod.rds"))
+agg_phys.mod.adh <- readRDS(file.path(data_dir, "frequentist.aggphys.mod.adh.rds"))
+
+# Bayesian summary tables
+summary_table_vload      <- readRDS(file.path(data_dir, "summary_table_vload.rds"))
+summary_table_vload_adh  <- readRDS(file.path(data_dir, "summary_table_vload_adh.rds"))
+
+summary_table_leu3n      <- readRDS(file.path(data_dir, "summary_table_leu3n.rds"))
+summary_table_leu3n_adh  <- readRDS(file.path(data_dir, "summary_table_leu3n_adh.rds"))
+
+summary_table_agg_ment     <- readRDS(file.path(data_dir, "summary_table_agg_ment.rds"))
+summary_table_agg_ment_adh <- readRDS(file.path(data_dir, "summary_table_agg_ment_adh.rds"))
+
+summary_table_agg_phys     <- readRDS(file.path(data_dir, "summary_table_agg_phys.rds"))
+summary_table_agg_phys_adh <- readRDS(file.path(data_dir, "summary_table_agg_phys_adh.rds"))
+```
+
+
+Extracting frequentist summary table values
+```{r}
+extract_freq <- function(mod, term_pattern = "^hard_drugs", conf_level = 0.95) {
+
+  sm <- summary(mod)$coefficients
+  rn <- rownames(sm)
+
+  term <- rn[grepl(term_pattern, rn)]
+
+  term <- term[1]
+
+  est <- sm[term, "Estimate"]
+  p   <- sm[term, "Pr(>|t|)"]
+
+  ci <- confint(mod, level = conf_level)
+  lo <- ci[term, 1]
+  hi <- ci[term, 2]
+
+  tibble(
+    term = term,
+    freq_est = as.numeric(est),
+    freq_lo  = as.numeric(lo),
+    freq_hi  = as.numeric(hi),
+    freq_p   = as.numeric(p)
+  )
+}
+
+fmt_ci <- function(lo, hi, digits = 3) sprintf("[%.*f, %.*f]", digits, lo, digits, hi)
+fmt_p  <- function(p) ifelse(p < 0.001, "<0.001", sprintf("%.3f", p))
+```
+
+Extracting bayes summary table values
+```{r}
+extract_bayes_beta3 <- function(sumtab) {
+  df <- as.data.frame(sumtab)
+  row <- df[df$Parameter == "beta[3]", , drop = FALSE]
+  if (nrow(row) != 1) stop("Couldn't uniquely find beta[3] in Bayesian summary table.")
+
+  tibble(
+    bayes_est = as.numeric(row$Estimate),
+    bayes_lo  = as.numeric(row$HPDI_2.5),
+    bayes_hi  = as.numeric(row$HPDI_97.5)
+  )
+}
+```
+
+```{r}
+
+make_row <- function(outcome_label, freq_mod, bayes_sumtab) {
+  f <- extract_freq(freq_mod, term = "hard_drugs1")
+  b <- extract_bayes_beta3(bayes_sumtab)
+
+  tibble(
+    Outcome = outcome_label,
+
+    `Bayesian Difference` = b$bayes_est,
+    `95% HPDI` = fmt_ci(b$bayes_lo, b$bayes_hi, digits = 3),
+
+    `Frequentist Difference` = f$freq_est,
+    `95% CI` = fmt_ci(f$freq_lo, f$freq_hi, digits = 3),
+    `p-value` = fmt_p(f$freq_p)
+  )
+}
+
+table_primary <- bind_rows(
+  make_row("Log(Viral Load)",         vload.mod,    summary_table_vload),
+  make_row("CD4+ T-Cell Count",       leu3n.mod,    summary_table_leu3n),
+  make_row("Agg. Mental QOL Score",   agg_ment.mod, summary_table_agg_ment),
+  make_row("Agg. Physical QOL Score", agg_phys.mod, summary_table_agg_phys)
+)
+
+table_primary
+
+```
+
+```{r}
+
+```
+
+
