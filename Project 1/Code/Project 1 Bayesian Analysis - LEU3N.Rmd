@@ -137,13 +137,10 @@ beta_name <- paste0("beta[", k, "]")
 # posterior probability of clinically meaningful difference in CD4 count between drug users
 prop.table(table(draws_df_LEU3N$'beta[3]' > 50 | draws_df_LEU3N$'beta[3]' < -50))
 
-#credible interval
-ci(draws_df_LEU3N[[beta_name]], ci = 0.95)
-
-
+pclin_LEU3N <- mean(abs(draws_df_LEU3N[[beta_name]]) > 50)
 ```
 
-The posterior mean difference in CD4 count between hard drug users and non-users was negative, with a 95% credible interval from −221.9 to −100.2 cells. The posterior probability that the magnitude of the difference exceeds 50 cells was 99.97%, indicating very strong evidence of a clinically meaningful reduction in CD4 count among hard drug users.
+The posterior probability that the magnitude of the difference exceeds 50 cells was 99.97%, indicating very strong evidence of a clinically meaningful reduction in CD4 count among hard drug users.
 
 ```{r}
 loglik_mat_LEU3N <- as_draws_matrix(fit.LEU3N$draws("log_lik"))  # iterations x N
@@ -288,11 +285,10 @@ beta_name <- paste0("beta[", k, "]")
 # posterior probability of clinically meaningful difference in CD4 count between drug users
 prop.table(table(draws_df_LEU3N_ADH$'beta[3]' > 50 | draws_df_LEU3N_ADH$'beta[3]' < -50))
 
-#credible interval
-ci(draws_df_LEU3N_ADH[[beta_name]], ci = 0.95)
+pclin_LEU3N_ADH <- mean(abs(draws_df_LEU3N_ADH[[beta_name]]) > 50)
 ```
 
-After adjusting for adherence level, the posterior mean difference in CD4 count between hard drug users and non-users was negative, with a 95% credible interval from −228.4 to −107.2 cells. The posterior probability that the magnitude of the difference exceeds 50 cells was 99.99%, indicating extremely strong evidence that hard drug use is associated with a clinically meaningful decrease in CD4 count, conditional on adherence.
+The posterior probability that the magnitude of the difference exceeds 50 cells was 99.99%, indicating extremely strong evidence that hard drug use is associated with a clinically meaningful decrease in CD4 count, controlling for adherence.
 
 ```{r}
 loglik_mat_LEU3N_ADH <- as_draws_matrix(fit_LEU3N_ADH$draws("log_lik"))  # iterations x N
@@ -339,5 +335,30 @@ fit_LEU3N_ADH$cmdstan_diagnose()
 ```{r}
 saveRDS(summary_table_LEU3N, file = "/Users/austinra/BIOS6624/Project 1/Data Processed/summary_table_leu3n.rds")
 saveRDS(summary_table_LEU3N_ADH, file = "/Users/austinra/BIOS6624/Project 1/Data Processed/summary_table_leu3n_adh.rds")
+
+saveRDS(
+  list(
+    outcome = "LEU3N",
+    model = "primary",
+    beta_name = beta_name,
+    p_clin = pclin_LEU3N,
+    loo = loo_res_LEU3N
+  ),
+  file = file.path("/Users/austinra/BIOS6624/Project 1/Data Processed/bayes_results_leu3n_primary.rds")
+)
+
+
+saveRDS(
+  list(
+    outcome = "LEU3N",
+    model = "adh",
+    beta_name = beta_name,
+    p_clin = pclin_LEU3N_ADH,
+    loo = loo_res_LEU3N_ADH
+  ),
+  file = file.path("/Users/austinra/BIOS6624/Project 1/Data Processed/bayes_results_leu3n_adh.rds")
+)
 ```
+
+
 
