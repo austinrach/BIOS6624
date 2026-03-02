@@ -44,7 +44,7 @@ Parameters
 
 ```{r}
 y.AGG_MENT <- df$AGG_MENT_2
-X.AGG_MENT <- model.matrix(~ AGG_MENT_0 + hard_drugs + age + BMI + smoke + race + education, data = df)
+X.AGG_MENT <- model.matrix(~ AGG_MENT_0 + hard_drugs + age + bmi + smoke + race + education, data = df)
 N.AGG_MENT <- nrow(df)
 P.AGG_MENT <- ncol(X.AGG_MENT)
 
@@ -204,7 +204,7 @@ Parameters
 
 ```{r}
 y.AGG_MENT <- df$AGG_MENT_2
-X.AGG_MENT.ADH <- model.matrix(~ AGG_MENT_0 + hard_drugs + adh_2 + age + BMI + smoke + race + education, data = df)
+X.AGG_MENT.ADH <- model.matrix(~ AGG_MENT_0 + hard_drugs + adh_2 + age + bmi + smoke + race + education, data = df)
 N.AGG_MENT <- nrow(df)
 P.AGG_MENT <- ncol(X.AGG_MENT.ADH)
 
@@ -289,20 +289,6 @@ print(summary_table_AGG_MENT_ADH)
 ```
 
 
-Checking for clinically meaningful difference - 2
-```{r}
-
-draws_mat_AGG_MENT_ADH <- as_draws_matrix(fit.AGG_MENT_ADH$draws())
-
-k <- which(colnames(X.AGG_MENT_ADH) == "hard_drugs1")  
-beta_name <- paste0("beta[", k, "]")
-
-vals <- as.numeric(draws_mat_AGG_MENT_ADH[, beta_name])
-
-prob_mean_diff_gt_05 <- mean(vals > 2)
-prob_mean_diff_gt_05
-```
-
 Checking for clinically meaningful difference (plus/minus 2) of AGG_MENT score for hard drug users adjusting for adherence
 ```{r}
 
@@ -361,3 +347,10 @@ mcmc_acf(draws_AGG_MENT_ADH, pars = params_AGG_MENT_ADH)
 # Diagnostics from cmdstan
 fit_AGG_MENT_ADH$cmdstan_diagnose()
 ```
+
+
+```{r}
+saveRDS(summary_table_AGG_MENT, file = "/Users/austinra/BIOS6624/Project 1/Data Processed/summary_table_agg_ment.rds")
+saveRDS(summary_table_AGG_MENT_ADH, file = "/Users/austinra/BIOS6624/Project 1/Data Processed/summary_table_agg_ment_adh.rds")
+```
+
