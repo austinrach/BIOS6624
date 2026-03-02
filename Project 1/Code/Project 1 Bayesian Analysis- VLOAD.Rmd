@@ -15,6 +15,7 @@ library(mcmcse)     # for calculating MCMCSE's
 library(loo)        # for getting model fit statistics (WAIC and LOO-IC)
 library(dplyr)
 library(tibble)
+library(openxlsx)
 ```
 
 Bayesian Analysis
