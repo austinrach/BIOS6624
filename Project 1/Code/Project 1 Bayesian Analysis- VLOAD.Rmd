@@ -134,6 +134,8 @@ beta_name <- paste0("beta[", k, "]")
 # posterior probability of clinically meaningful difference in log vload between drug users
 prop.table(table(draws_df_VLOAD$'beta[3]' > 0.5 | draws_df_VLOAD$'beta[3]' < -0.5))
 
+pclin_VLOAD <- mean(abs(draws_df_VLOAD[[beta_name]]) > 0.5)
+
 ```
 There is a 27.9% posterior probability that hard drug use is associated with at least a 0.5 log-unit difference in viral load. There is little evidence of a meaningful effect.
 
@@ -308,11 +310,41 @@ beta_name <- paste0("beta[", k, "]")
 # posterior probability of clinically meaningful difference in log vload between drug users
 prop.table(table(draws_df_VLOAD_ADH$'beta[3]' > 0.5 | draws_df_VLOAD_ADH$'beta[3]' < -0.5))
 
-```
-There is a 27.03% posterior probability that hard drug use is associated with at least a 0.5 log-unit difference in viral load. There is little evidence of a meaningful effect after adjusting for adherence.
+pclin_VLOAD_ADH <- mean(abs(draws_df_VLOAD_ADH[['beta[3]']]) > 0.5)
 
+```
+There is 1.4% posterior probability that hard drug use is associated with at least a 0.5 log-unit difference in viral load. There is little evidence of a meaningful effect after adjusting for adherence.
+
+
+Save estimates for summary tables
 ```{r}
 saveRDS(summary_table_VLOAD, file = "/Users/austinra/BIOS6624/Project 1/Data Processed/summary_table_vload.rds")
 saveRDS(summary_table_VLOAD_ADH, file = "/Users/austinra/BIOS6624/Project 1/Data Processed/summary_table_vload_adh.rds")
+```
+
+Save clinically meaningful posterior prob and loo-cv
+```{r}
+saveRDS(
+  list(
+    outcome = "VLOAD",
+    model = "primary",
+    beta_name = beta_name,
+    p_clin = pclin_VLOAD,
+    loo = loo_res_VLOAD
+  ),
+  file = file.path("/Users/austinra/BIOS6624/Project 1/Data Processed/bayes_results_vload_primary.rds")
+)
+
+saveRDS(
+  list(
+    outcome = "VLOAD",
+    model = "adh",
+    beta_name = beta_name,
+    p_clin = pclin_VLOAD_ADH,
+    loo = loo_res_VLOAD_ADH
+  ),
+  file = file.path("/Users/austinra/BIOS6624/Project 1/Data Processed/bayes_results_vload_adh.rds")
+)
+
 ```
 
