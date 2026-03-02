@@ -178,44 +178,6 @@ table_adh <- bind_rows(
 )
 ```
 
-Creating adherence model table
-
-```{r results='asis'}
-tab_pub_adh <- table_adh %>%
-  transmute(
-    Outcome = Outcome,
-    `Posterior mean` = `Bayesian Difference`,
-    `95% HPDI` = `95% HPDI`,
-    Estimate = `Frequentist Difference`,
-    `95% CI` = `95% CI`,
-    `p-value` = `p-value`
-  ) %>%
-  mutate(
-    `Posterior mean` = round(`Posterior mean`, 3),
-    Estimate = round(Estimate, 3)
-  ) %>%
-  # avoid LaTeX unicode minus error if any
-  mutate(across(where(is.character), ~ gsub("\u2212", "-", .x)))
-
-tab_pub_adh %>%
-  kable(
-    format = "latex",
-    booktabs = TRUE,
-    align = "lccccc",
-    caption = "Model Results for Bayesian and Frequentist Analyses (Models Adjusting for Adherence)"
-  ) %>%
-  add_header_above(c(" " = 1, "Bayesian Model" = 2, "Frequentist Model" = 3)) %>%
-  kable_styling(
-    latex_options = c("hold_position", "scale_down"),
-    full_width = FALSE,
-    position = "center"
-  ) %>%
-  column_spec(1, width = "2.2in") %>%
-  footnote(
-    general = "Estimates represent adjusted mean differences at 2-year follow-up (hard drug users minus non-users), adjusted for baseline outcome, covariates, and adherence. Non-users are the reference group for baseline hard drug use. Viral load was modeled on the log10 scale. Bayesian estimates are posterior means with 95% HPDIs; frequentist estimates are linear regression coefficients with 95% confidence intervals.",
-    threeparttable = TRUE
-  )
-```
 
 Reading in posterior probability data
 ```{r, include = FALSE}
@@ -270,23 +232,23 @@ table_clin_loo <- thresholds %>%
   mutate(Outcome = outcome_labels[outcome]) %>%
   left_join(df_primary %>% select(outcome, p_clin, looic), by = "outcome") %>%
   rename(
-    `Primary: Posterior P(|β|>Δ)` = p_clin,
+    `Primary: Posterior P(|Beta|>Δ)` = p_clin,
     `Primary: LOOIC` = looic
   ) %>%
   left_join(df_adh %>% select(outcome, p_clin, looic), by = "outcome") %>%
   rename(
-    `+Adherence: Posterior P(|β|>Δ)` = p_clin,
+    `+Adherence: Posterior P(|Beta|>Δ)` = p_clin,
     `+Adherence: LOOIC` = looic
   ) %>%
   select(
     Outcome,
     `Clinically meaningful (±Δ)`,
-    `Primary: Posterior P(|β|>Δ)`, `Primary: LOOIC`,
-    `+Adherence: Posterior P(|β|>Δ)`, `+Adherence: LOOIC`
+    `Primary: Posterior P(|Beta|>Δ)`, `Primary: LOOIC`,
+    `+Adherence: Posterior P(|Beta|>Δ)`, `+Adherence: LOOIC`
   ) %>%
   mutate(
-    `Primary: Posterior P(|β|>Δ)` = round(`Primary: Posterior P(|β|>Δ)`, 4),
-    `+Adherence: Posterior P(|β|>Δ)` = round(`+Adherence: Posterior P(|β|>Δ)`, 4),
+    `Primary: Posterior P(|Beta|>Δ)` = round(`Primary: Posterior P(|Beta|>Δ)`, 4),
+    `+Adherence: Posterior P(|Beta|>Δ)` = round(`+Adherence: Posterior P(|Beta|>Δ)`, 4),
     `Primary: LOOIC` = round(`Primary: LOOIC`, 1),
     `+Adherence: LOOIC` = round(`+Adherence: LOOIC`, 1)
   )
@@ -301,7 +263,7 @@ table_clin_loo %>%
     format = "latex",
     booktabs = TRUE,
     align = "lcccccc",
-    caption = "Posterior Probability of Clinically Meaningful Effects and LOO-CV by Outcome"
+    caption = "Posterior Probability of Clinically Meaningful Effects and LOOIC by Outcome"
   ) %>%
   add_header_above(c(" " = 2, "Primary model" = 2, "Primary model + adherence" = 2)) %>%
   kable_styling(
@@ -310,8 +272,48 @@ table_clin_loo %>%
     position = "center"
   ) %>%
   footnote(
-    general = "Posterior probabilities are computed as $P(|\\beta| > \\Delta)$ using posterior draws. LOOIC is the leave-one-out information criterion (lower indicates better out-of-sample predictive performance).",
+    general = "Posterior probabilities are computed as $P(|\\beta| > \\Delta)$ using posterior draws. LOOIC is the leave-one-out information criterion (lower indicates better out-of-sample predictive performance). A meaningful change in LOOIC is three points.",
     threeparttable = TRUE,
     escape = FALSE
   )
+```
 
+
+Creating adherence model table
+
+```{r results='asis'}
+tab_pub_adh <- table_adh %>%
+  transmute(
+    Outcome = Outcome,
+    `Posterior mean` = `Bayesian Difference`,
+    `95% HPDI` = `95% HPDI`,
+    Estimate = `Frequentist Difference`,
+    `95% CI` = `95% CI`,
+    `p-value` = `p-value`
+  ) %>%
+  mutate(
+    `Posterior mean` = round(`Posterior mean`, 3),
+    Estimate = round(Estimate, 3)
+  ) %>%
+  # avoid LaTeX unicode minus error if any
+  mutate(across(where(is.character), ~ gsub("\u2212", "-", .x)))
+
+tab_pub_adh %>%
+  kable(
+    format = "latex",
+    booktabs = TRUE,
+    align = "lccccc",
+    caption = "Model Results for Bayesian and Frequentist Analyses (Models Adjusting for Adherence)"
+  ) %>%
+  add_header_above(c(" " = 1, "Bayesian Model" = 2, "Frequentist Model" = 3)) %>%
+  kable_styling(
+    latex_options = c("hold_position", "scale_down"),
+    full_width = FALSE,
+    position = "center"
+  ) %>%
+  column_spec(1, width = "2.2in") %>%
+  footnote(
+    general = "Estimates represent adjusted mean differences at 2-year follow-up (hard drug users minus non-users), adjusted for baseline outcome, covariates, and adherence. Non-users are the reference group for baseline hard drug use. Viral load was modeled on the log10 scale. Bayesian estimates are posterior means with 95% HPDIs; frequentist estimates are linear regression coefficients with 95% confidence intervals.",
+    threeparttable = TRUE
+  )
+```
