@@ -18,7 +18,7 @@ library(tibble)
 library(stringr)
 library(knitr)
 library(kableExtra)
-
+library(purrr)
 ```
 
 ```{r, include = FALSE}
@@ -217,4 +217,101 @@ tab_pub_adh %>%
   )
 ```
 
+Reading in posterior probability data
+```{r, include = FALSE}
+files <- c(
+  "bayes_results_vload_primary.rds",
+  "bayes_results_leu3n_primary.rds",
+  "bayes_results_agg_ment_primary.rds",
+  "bayes_results_agg_phys_primary.rds"
+)
+
+results_list <- map(file.path(data_dir, files), readRDS)
+
+files_adh <- c(
+  "bayes_results_vload_adh.rds",
+  "bayes_results_leu3n_adh.rds",
+  "bayes_results_agg_ment_adh.rds",
+  "bayes_results_agg_phys_adh.rds")
+
+results_list_adh <- map(file.path(data_dir, files_adh), readRDS)
+```
+
+Creating table
+```{r, include = FALSE}
+#chatgpt function to create table
+extract_pclin_looic <- function(x) {
+  tibble(
+    outcome = x$outcome,
+    model = x$model,
+    p_clin = as.numeric(x$p_clin),
+    looic = as.numeric(x$loo$estimates["looic", "Estimate"]),
+    looic_se = as.numeric(x$loo$estimates["looic", "SE"])
+  )
+}
+
+df_primary <- map_dfr(results_list, extract_pclin_looic)
+df_adh     <- map_dfr(results_list_adh, extract_pclin_looic)
+
+
+outcome_labels <- c(
+  VLOAD = "Log(Viral Load)",
+  LEU3N = "CD4+ T-Cell Count",
+  AGG_MENT = "Agg. Mental QOL Score",
+  AGG_PHYS = "Agg. Physical QOL Score"
+)
+
+thresholds <- tibble(
+  outcome = c("VLOAD", "LEU3N", "AGG_MENT", "AGG_PHYS"),
+  `Clinically meaningful (±Δ)` = c("±0.5", "±50", "±2", "±2")
+)
+
+table_clin_loo <- thresholds %>%
+  mutate(Outcome = outcome_labels[outcome]) %>%
+  left_join(df_primary %>% select(outcome, p_clin, looic), by = "outcome") %>%
+  rename(
+    `Primary: Posterior P(|β|>Δ)` = p_clin,
+    `Primary: LOOIC` = looic
+  ) %>%
+  left_join(df_adh %>% select(outcome, p_clin, looic), by = "outcome") %>%
+  rename(
+    `+Adherence: Posterior P(|β|>Δ)` = p_clin,
+    `+Adherence: LOOIC` = looic
+  ) %>%
+  select(
+    Outcome,
+    `Clinically meaningful (±Δ)`,
+    `Primary: Posterior P(|β|>Δ)`, `Primary: LOOIC`,
+    `+Adherence: Posterior P(|β|>Δ)`, `+Adherence: LOOIC`
+  ) %>%
+  mutate(
+    `Primary: Posterior P(|β|>Δ)` = round(`Primary: Posterior P(|β|>Δ)`, 4),
+    `+Adherence: Posterior P(|β|>Δ)` = round(`+Adherence: Posterior P(|β|>Δ)`, 4),
+    `Primary: LOOIC` = round(`Primary: LOOIC`, 1),
+    `+Adherence: LOOIC` = round(`+Adherence: LOOIC`, 1)
+  )
+
+table_clin_loo
+```
+
+```{r results='asis'}
+
+table_clin_loo %>%
+  kable(
+    format = "latex",
+    booktabs = TRUE,
+    align = "lcccccc",
+    caption = "Posterior Probability of Clinically Meaningful Effects and LOO-CV by Outcome"
+  ) %>%
+  add_header_above(c(" " = 2, "Primary model" = 2, "Primary model + adherence" = 2)) %>%
+  kable_styling(
+    latex_options = c("hold_position", "scale_down"),
+    full_width = FALSE,
+    position = "center"
+  ) %>%
+  footnote(
+    general = "Posterior probabilities are computed as $P(|\\beta| > \\Delta)$ using posterior draws. LOOIC is the leave-one-out information criterion (lower indicates better out-of-sample predictive performance).",
+    threeparttable = TRUE,
+    escape = FALSE
+  )
 
