@@ -43,7 +43,7 @@ Parameters
 
 ```{r}
 y.AGG_PHYS <- df$AGG_PHYS_2
-X.AGG_PHYS <- model.matrix(~ AGG_PHYS_0 + hard_drugs + age + BMI + smoke + race + education, data = df)
+X.AGG_PHYS <- model.matrix(~ AGG_PHYS_0 + hard_drugs + age + bmi + smoke + race + education, data = df)
 N.AGG_PHYS <- nrow(df)
 P.AGG_PHYS <- ncol(X.AGG_PHYS)
 
@@ -193,7 +193,7 @@ Parameters
 
 ```{r}
 y.AGG_PHYS <- df$AGG_PHYS_2
-X.AGG_PHYS.ADH <- model.matrix(~ AGG_PHYS_0 + hard_drugs + adh_2 + age + BMI + smoke + race + education, data = df)
+X.AGG_PHYS.ADH <- model.matrix(~ AGG_PHYS_0 + hard_drugs + adh_2 + age + bmi + smoke + race + education, data = df)
 N.AGG_PHYS <- nrow(df)
 P.AGG_PHYS <- ncol(X.AGG_PHYS.ADH)
 
@@ -339,3 +339,9 @@ mcmc_acf(draws_AGG_PHYS_ADH, pars = params_AGG_PHYS_ADH)
 # Diagnostics from cmdstan
 fit_AGG_PHYS_ADH$cmdstan_diagnose()
 ```
+
+```{r}
+saveRDS(summary_table_AGG_PHYS, file = "/Users/austinra/BIOS6624/Project 1/Data Processed/summary_table_agg_phys.rds")
+saveRDS(summary_table_AGG_PHYS_ADH, file = "/Users/austinra/BIOS6624/Project 1/Data Processed/summary_table_agg_phys_adh.rds")
+```
+
