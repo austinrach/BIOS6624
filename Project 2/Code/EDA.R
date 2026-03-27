@@ -1,4 +1,4 @@
-df <- read.csv("Project 2/dfa Raw/PrelimData.csv")
+df <- read.csv("Project 2/Data Raw/PrelimData.csv")
 # Example variable names assumed:
 # CORT_CNG3 = baseline - year1 cortical thickness
 # CVLT_CNG3      = baseline - year1 CLVT
