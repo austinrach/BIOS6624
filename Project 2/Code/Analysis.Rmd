@@ -1,0 +1,77 @@
+---
+title: "Untitled"
+author: "Rachel Austin"
+date: "2026-03-27"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(psych)
+library(knitr)
+library(kableExtra)
+library(powertools)
+```
+Power Analysis for Aim 1:
+
+```{r}
+df <- read.csv("Project 2/Data Raw/PrelimData.csv")
+```
+
+```{r}
+
+
+vars <- df[, c("IL_6", "MCP_1", "CORT_CNG3", "CVLT_CNG3")]
+
+res <- corr.test(vars)
+
+# Extract results
+r_mat <- round(res$r, 2)
+r_mat[upper.tri(r_mat)] <- ""
+
+kable(r_mat,
+      caption = "Correlation Matrix",
+      booktabs = TRUE,
+      align = "c") %>%
+  kable_styling(latex_options = c("hold_position"))
+```
+
+```{r}
+
+# correlations
+r_vals <- seq(-0.2, -0.7, by = -0.1)
+
+# alpha levels
+alphas <- c(0.05/6, 0.05/4, 0.05/24)
+alpha_labels <- c("0.05/6", "0.05/4", "0.05/24")
+
+# empty results object
+results <- data.frame()
+
+for (a in seq_along(alphas)) {
+  for (r in r_vals) {
+    
+    test <- corr.1samp(
+      N = 175,
+      rho0 = 0,
+      rhoA = r,
+      alpha = alphas[a],
+      sides = 2
+    )
+    
+    results <- rbind(
+      results,
+      data.frame(
+        r = r,
+        alpha = alpha_labels[a],
+        power = test
+      )
+    )
+  }
+}
+
+results
+
+```
+
+
