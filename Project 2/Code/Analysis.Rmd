@@ -19,8 +19,6 @@ df <- read.csv("Project 2/Data Raw/PrelimData.csv")
 ```
 
 ```{r}
-
-
 vars <- df[, c("IL_6", "MCP_1", "CORT_CNG3", "CVLT_CNG3")]
 
 res <- corr.test(vars)
@@ -37,9 +35,8 @@ kable(r_mat,
 ```
 
 ```{r}
-
 # correlations
-r_vals <- seq(-0.2, -0.7, by = -0.1)
+r_vals <- seq(0.2, 0.7, by = 0.1)
 
 # alpha levels
 alphas <- c(0.05/6, 0.05/4, 0.05/24)
@@ -72,6 +69,75 @@ for (a in seq_along(alphas)) {
 
 results
 
+```
+
+
+Power Analysis for Aim 2:
+```{r}
+# correlations
+r_vals <- seq(0.2, 0.7, by = 0.1)
+
+#difference in correlations
+delta_rho_vals <- seq(0.2, 0.6, by = 0.1)
+
+# alpha levels
+alphas <- c(0.05/6, 0.05/4, 0.05/24)
+alpha_labels <- c("0.05/6", "0.05/4", "0.05/24")
+
+#low/high amyloid ratio
+nratio_vals <- c(0.5, 0.75, 1, 1.25, 1.5)
+
+# maximum total sample size
+N_max <- 175
+
+# empty results object
+results <- data.frame()
+
+for (a in seq_along(alphas)) {
+  for (delta_rho in delta_rho_vals) {
+    for (i in seq_along(rho1_vals)) {
+      
+      rho1 <- rho1_vals[i]
+      rho2 <- rho1 - delta_rho  #
+      
+      # skip impossible correlations (< -1)
+      if (rho2 < -1) next
+      
+      for (nr in nratio_vals) {
+        
+        # calculate n1 and n2 based on max total N
+        n1 <- round(N_max / (1 + nr))
+        n2 <- N_max - n1  
+        
+        test <- corr.2samp(
+          n1 = n1,
+          n.ratio = nr,
+          rho1 = rho1,
+          rho2 = rho2,
+          alpha = alphas[a],
+          sides = 2
+        )
+        
+        results <- rbind(
+          results,
+          data.frame(
+            rho1 = rho1,
+            rho2 = rho2,
+            delta_rho = delta_rho,
+            n_ratio = nr,
+            n1 = n1,
+            n2 = n2,
+            alpha = alpha_labels[a],
+            power = test
+          )
+        )
+      }
+    }
+  }
+}
+
+
+results
 ```
 
 
