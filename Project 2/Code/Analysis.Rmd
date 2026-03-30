@@ -10,6 +10,8 @@ knitr::opts_chunk$set(echo = TRUE)
 library(psych)
 library(knitr)
 library(kableExtra)
+library(dplyr)
+library(tibble)
 library(powertools)
 ```
 Power Analysis for Aim 1:
@@ -27,8 +29,21 @@ res <- corr.test(vars)
 r_mat <- round(res$r, 2)
 r_mat[upper.tri(r_mat)] <- ""
 
+#Labels
+labels <- c(
+  IL_6 = "IL_6",
+  MCP_1 = "MCP_1",
+  CORT_CNG3 = "Change in Cortical Thickness",
+  CVLT_CNG3 = "Change in CVLT score"
+)
+
+# Apply labels to row and column names
+colnames(r_mat) <- labels[colnames(r_mat)]
+rownames(r_mat) <- labels[rownames(r_mat)]
+
+# Print the table
 kable(r_mat,
-      caption = "Correlation Matrix",
+      caption = "Preliminary Data Correlation Matrix",
       booktabs = TRUE,
       align = "c") %>%
   kable_styling(latex_options = c("hold_position"))
@@ -36,11 +51,11 @@ kable(r_mat,
 
 ```{r}
 # correlations
-r_vals <- seq(0.2, 0.7, by = 0.1)
+r_vals <- seq(0.2, 0.7, by = 0.05)
 
 # alpha levels
-alphas <- c(0.05/6, 0.05/4, 0.05/24)
-alpha_labels <- c("0.05/6", "0.05/4", "0.05/24")
+alphas <- c(0.05/4, 0.05/6, 0.05/24)
+alpha_labels <- c("0.05/4", "0.05/6", "0.05/24")
 
 # empty results object
 results1 <- data.frame()
@@ -70,6 +85,43 @@ for (a in seq_along(alphas)) {
 results1
 
 ```
+Figure
+```{r}
+results1_80 <- results1 %>%
+  arrange(alpha, r) %>%              
+  group_by(alpha) %>%
+  filter(power <= 0.95) %>%
+  ungroup() %>%
+  mutate(
+    r = round(r, 2),
+    power = round(power, 2)
+  )
+
+results1_80 <- results1_80 %>%
+  mutate(
+    alpha = factor(alpha, levels = c("0.05/4", "0.05/6", "0.05/24")),
+    r = round(r, 2),
+    power = round(power * 100, 1)   # convert to percent
+  ) %>%
+  arrange(alpha)
+
+results1_80 %>%
+  select(alpha, r, power) %>%  
+  kable(
+    caption = "Aim 1: Correlation and Power Relationship Across Alpha Thresholds (N = 175)",
+    col.names = c("Alpha Threshold", "Correlation (r)", "Power (%)"),
+    align = "c",
+    booktabs = TRUE
+  ) %>%
+  kable_styling(
+    latex_options = c("hold_position", "striped"),
+    full_width = FALSE,
+    position = "center"
+  ) %>%
+  row_spec(0, bold = TRUE)
+
+
+```
 
 Power Analysis for Aim 1- first correlation to achieve 50% power
 ```{r}
@@ -93,9 +145,22 @@ for (i in seq_along(alphas)) {
 # Create clean table
 aim1_r <-data.frame(
   Alpha = alpha_labels,
-  r_needed_for_80_percent_power = round(results_r, 2)
+  r_needed_for_80_percent_power = round(results_r, 5)
 )
 
+aim1_r %>%
+  kable(
+    caption = "Correlation Thresholds Required for 80% Power in Aim 1",
+    col.names = c("Alpha Threshold", "r Required for 80% Power"),
+    align = "c",
+    booktabs = TRUE,
+    digits = 3
+  ) %>%
+  kable_styling(
+    latex_options = c("hold_position", "striped", "scale_down"),
+    position = "center",
+    full_width = FALSE
+  )
 ```
 
 
@@ -108,8 +173,8 @@ r_vals <- seq(0.2, 0.7, by = 0.1)
 delta_rho_vals <- seq(0.1, 0.5, by = 0.1)
 
 # alpha levels
-alphas <- c(0.05/6, 0.05/4, 0.05/24)
-alpha_labels <- c("0.05/6", "0.05/4", "0.05/24")
+alphas <- c(0.05/4, 0.05/6, 0.05/24)
+alpha_labels <- c("0.05/4", "0.05/6", "0.05/24")
 
 #low/high amyloid proportions: 20% to 80%
 prop_low_vals <- seq(0.2, 0.8, by = 0.1)
@@ -129,9 +194,9 @@ eps <- 1e-6
 #ChatGPT helped with function to avoid errors
 for (a in seq_along(alphas)) {
   for (delta_rho in delta_rho_vals) {
-    for (i in seq_along(rho1_vals)) {
+    for (i in seq_along(r_vals)) {
       
-      rho1 <- rho1_vals[i]
+      rho1 <- r_vals[i]
       rho2 <- rho1 + delta_rho
       
       # skip invalid correlations 
@@ -192,7 +257,7 @@ results2
 
 
 
-Power Analysis for Aim 2- first correlation to achieve 50% power
+Power Analysis for Aim 2- first correlation to achieve 80% power
 ```{r}
 # Storage
 aim2_r <- data.frame()
@@ -230,7 +295,7 @@ target_power <- 0.8
 N_max <- 175
 rho1_vals <- aim1_r$r_needed_for_80_percent_power  # use Aim 1 min corr
 alpha_vals <- alphas
-prop_low_vals <- seq(0.2, 0.8, by = 0.05)
+prop_low_vals <- seq(0.2, 0.5, by = 0.1)
 nratio_vals <- prop_low_vals / (1 - prop_low_vals)
 
 # Storage
@@ -268,5 +333,134 @@ for (i in seq_along(alpha_vals)) {
     }
   }
 }
+
+
+
+aim2_r_clean <- aim2_r %>%
+  mutate(
+    rho1 = round(rho1, 2),
+    delta_rho_80 = round(delta_rho_80, 2),
+    rho2_80 = round(rho2_80, 2),
+    prop_low = round(prop_low, 2)
+  ) %>%
+  arrange(alpha, rho1, prop_low)
+
+aim2_r_clean %>%
+  kable(
+    caption = "Minimum Detectable Differences in Correlation (Δρ) for 80% Power",
+    col.names = c(
+      "Alpha",
+      "ρ (Group 1)",
+      "Proportion (Group 1)",
+      "n (Group 1)",
+      "n (Group 2)",
+      "Δρ",
+      "ρ (Group 2)"
+    ),
+    align = "c",
+    booktabs = TRUE
+  ) %>%
+  kable_styling(latex_options = c("hold_position", "striped", "scale_down")) %>%
+  group_rows("α = 0.05/4", 1, nrow(aim2_r_clean)/3) %>%
+  group_rows("α = 0.05/6", nrow(aim2_r_clean)/3 + 1, 2*nrow(aim2_r_clean)/3) %>%
+  group_rows("α = 0.05/24", 2*nrow(aim2_r_clean)/3 + 1, nrow(aim2_r_clean))
+
+
+
+# Remove alpha column for display
+aim2_r_display <- aim2_r_clean %>%
+  select(-alpha)  # drop the column
+
+# Count rows per alpha group
+rows_per_group <- nrow(aim2_r_display) / 3  # assuming 3 alpha groups
+
+# Build table
+aim2_r_display %>%
+  kable(
+    caption = "Minimum Detectable Differences in Correlation (Δρ) for 80% Power",
+    col.names = c(
+      "ρ (Group 1)",
+      "Proportion (Group 1)",
+      "n (Group 1)",
+      "n (Group 2)",
+      "Δρ",
+      "ρ (Group 2)"
+    ),
+    align = "c",
+    booktabs = TRUE
+  ) %>%
+  kable_styling(
+    latex_options = c("hold_position", "striped", "scale_down"),
+    full_width = FALSE
+  ) %>%
+  group_rows("α = 0.05/4", 1, rows_per_group) %>%
+  group_rows("α = 0.05/6", rows_per_group + 1, 2*rows_per_group) %>%
+  group_rows("α = 0.05/24", 2*rows_per_group + 1, 3*rows_per_group)
+```
+
+
+Figure displaying expected proportion w low vs high ad (50 low, 125 high ~ 30% 70%)
+```{r}
+# Fixed group sizes
+n1_fixed <- 50   # lower rho group
+n2_fixed <- 125  # higher rho group
+n_ratio_fixed <- n2_fixed / n1_fixed  # = 2.5
+N_total <- n1_fixed + n2_fixed
+
+# Storage
+aim2_r_fixed <- data.frame()
+
+# Loop over alpha and rho1 only
+for (i in seq_along(alpha_vals)) {
+  alpha <- alpha_vals[i]
+  
+  for (rho1 in rho1_vals) {
+    
+    delta_rho <- find_delta_rho_for_power(
+      rho1 = rho1,
+      n_total = N_total,
+      n_ratio = n_ratio_fixed,
+      alpha = alpha,
+      power_target = target_power
+    )
+    
+    aim2_r_fixed <- rbind(
+      aim2_r_fixed,
+      data.frame(
+        alpha = alpha,
+        rho1 = rho1,
+        n_low = n1_fixed,
+        n_high = n2_fixed,
+        delta_rho_80 = delta_rho,
+        rho2_80 = rho1 + delta_rho
+      )
+    )
+  }
+}
+
+aim2_r_fixed <- aim2_r_fixed %>%
+  mutate(
+    alpha_label = case_when(
+      alpha == 0.05/4  ~ "0.05/4",
+      alpha == 0.05/6  ~ "0.05/6",
+      alpha == 0.05/24 ~ "0.05/24"
+    ),
+    alpha_label = factor(alpha_label, levels = c("0.05/4", "0.05/6", "0.05/24"))
+  ) %>%
+  arrange(alpha_label)
+
+aim2_r_fixed %>%
+  select(alpha_label, rho1, n_low, n_high, delta_rho_80, rho2_80) %>%
+  kable(
+    caption = "Minimum Detectable Difference in Correlations (Δρ) for 80% Power with Unequal Group Sizes (n = 50 vs 125)",
+    col.names = c("Alpha", "ρ (Lower Group)", "n (Lower)", "n (Higher)", "Δρ for 80% Power", "ρ (Higher Group)"),
+    digits = 3,
+    align = "c",
+    booktabs = TRUE
+  ) %>%
+  kable_styling(
+    latex_options = c("hold_position", "striped", "scale_down"),
+    full_width = FALSE
+)
 ```
 
