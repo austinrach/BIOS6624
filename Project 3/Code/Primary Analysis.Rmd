@@ -1,0 +1,34 @@
+---
+title: "Primary Analysis"
+author: "Rachel Austin"
+date: "2026-04-16"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(gtsummary)
+library(tidyr)
+library(openxlsx)
+library(survminer)
+library(survival)
+```
+
+```{r}
+df <- read.xlsx("/Users/austinra/BIOS6624/Project 3/Data Processed/survival_df.xlsx")
+df$SEX <- factor(df$SEX, levels = c(1,2), labels = c("Male", "Female"))
+```
+
+#Preliminary Visualizations
+```{r}
+surv <- survfit(Surv(TIME_STROKE, STROKE)~SEX, data = df)
+ggsurvplot(surv, censor = F)
+ggsurvplot(surv, censor = F, fun= "cloglog")
+```
+
+
+```{r}
+
+```
+
