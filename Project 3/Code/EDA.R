@@ -23,7 +23,7 @@ baseline_covs <- df %>%
   group_by(RANDID) %>%
   slice(1) %>%
   ungroup() %>%
-  select(RANDID, SEX, AGE, DIABETES, SYSBP, BPMEDS, CURSMOKE, TOTCHOL, BMI)
+  select(RANDID, SEX, AGE, DIABETES, SYSBP,PREVCHD, BPMEDS, CURSMOKE, TOTCHOL, BMI)
 
 # Join them together
 df_baseline <- baseline_covs %>%
@@ -39,6 +39,7 @@ df_baseline <- df_baseline %>%
   mutate(
     SEX = factor(SEX, levels = c(1,2), labels = c("Male","Female")),
     STROKE = factor(STROKE, levels = c(0,1), labels = c("No Stroke","Stroke")),
+    PREVCHD = factor(PREVCHD, levels = c(0,1), labels = c("Free of disease", "Prevalent Disease")),
     DIABETES = factor(DIABETES, levels = c(0,1), labels = c("No Diabetes", "Diabetes")),
     BPMEDS = factor(BPMEDS, levels = c(0,1), labels = c("Not on Hypertension Meds", "On Hypertension Meds")),
     CURSMOKE = factor(CURSMOKE, levels = c(0,1), labels = c("Not a current smoker", "Current smoker"))
@@ -46,23 +47,21 @@ df_baseline <- df_baseline %>%
 
 # Table 1: baseline covariates stratified by sex
 table1 <- df_baseline %>%
-  mutate(TIME_STROKE = ifelse(STROKE == "Stroke", TIME_STROKE, NA)) %>%
-  select(SEX, STROKE, TIME_STROKE, AGE, DIABETES, SYSBP, BPMEDS, CURSMOKE, TOTCHOL, BMI) %>%
+  select(SEX, STROKE, TIME_STROKE, AGE, DIABETES, SYSBP, PREVCHD, BPMEDS, CURSMOKE, TOTCHOL, BMI) %>%
   tbl_summary(
     by = SEX,
-    missing = "no",
     statistic = list(
-      TIME_STROKE ~ "{mean} ({sd})",
       all_continuous() ~ "{mean} ({sd})",
       all_categorical() ~ "{n} ({p}%)"
     ),
     label = list(
       TIME_STROKE ~ "Time to Stroke (days)",
       STROKE ~ "Stroke within 10 years",
-      AGE ~ "Age",
+      AGE ~ "Age (years)",
       DIABETES ~ "Diabetes",
-      SYSBP ~ "Systolic BP",
-      BPMEDS ~ "BP Medications",
+      SYSBP ~ "Systolic Blood Pressure (mmHG)",
+      PREVCHD ~ "Prevalent Coronary Heart Disease",
+      BPMEDS ~ "Blood Pressure Medications",
       CURSMOKE ~ "Current Smoker",
       TOTCHOL ~ "Total Cholesterol",
       BMI ~ "BMI"
@@ -78,6 +77,7 @@ df_baseline <- df_baseline %>%
   mutate(
     SEX = ifelse(SEX == "Male", 1, 2),
     STROKE = ifelse(STROKE == "Stroke", 1, 0),
+    PREVCHD = ifelse(PREVCHD == "Prevalent Disease",1,0),
     DIABETES = ifelse(DIABETES == "Diabetes", 1, 0),
     BPMEDS = ifelse(BPMEDS == "On Hypertension Meds", 1, 0),
     CURSMOKE = ifelse(CURSMOKE == "Current smoker", 1, 0)
@@ -101,7 +101,7 @@ df_wide <- df %>%
     id_cols = RANDID,
     names_from = PERIOD,
     values_from = c(AGE, DIABETES, SYSBP, BPMEDS, CURSMOKE, TOTCHOL, BMI),
-    names_glue = "{.value}{PERIOD}"  # gives you AGE1, AGE2, AGE3 etc.
+    names_glue = "{.value}{PERIOD}" 
   ) %>%
   left_join(
     df_baseline %>% select(RANDID, STROKE, TIME_STROKE),
