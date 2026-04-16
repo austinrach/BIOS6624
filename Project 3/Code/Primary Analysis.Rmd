@@ -17,7 +17,15 @@ library(survival)
 
 ```{r}
 df <- read.xlsx("/Users/austinra/BIOS6624/Project 3/Data Processed/survival_df.xlsx")
-df$SEX <- factor(df$SEX, levels = c(1,2), labels = c("Male", "Female"))
+
+#Change to factor
+df$SEX <- factor(df$SEX)
+df$DIABETES <- factor(df$DIABETES)
+df$BPMEDS <- factor(df$BPMEDS)
+df$CURSMOKE <- factor(df$CURSMOKE)
+
+#Remove missing baseline values
+df <- df %>% filter(complete.cases(BPMEDS, TOTCHOL, BMI))
 ```
 
 #Preliminary Visualizations
@@ -27,8 +35,39 @@ ggsurvplot(surv, censor = F)
 ggsurvplot(surv, censor = F, fun= "cloglog")
 ```
 
-
+Separate male and female data for analysis
 ```{r}
-
+male_df <- filter(df, SEX ==1)
+female_df <- filter(df, SEX ==2)
 ```
 
+
+```{r}
+full_male_mod <- coxph(Surv(TIME_STROKE, STROKE) ~ AGE + DIABETES  + SYSBP + BPMEDS + CURSMOKE + TOTCHOL + BMI, 
+                    data = male_df)
+
+# Run backwards selection
+reduced_male_mod <- step(full_male_mod,
+                         scope = list(
+                           lower = ~ AGE + DIABETES + SYSBP,
+                           upper = ~ AGE + DIABETES  + SYSBP + BPMEDS + CURSMOKE + TOTCHOL + BMI 
+                           ),
+                         direction = "backward")
+
+summary(reduced_male_mod)
+```
+
+```{r}
+full_female_mod <- coxph(Surv(TIME_STROKE, STROKE) ~ AGE + DIABETES  + SYSBP + BPMEDS + CURSMOKE + TOTCHOL + BMI, 
+                    data = female_df)
+
+# Run backwards selection
+reduced_female_mod <- step(full_female_mod,
+                           scope = list(
+                           lower = ~ AGE + DIABETES + SYSBP,
+                           upper = ~ AGE + DIABETES  + SYSBP + BPMEDS + CURSMOKE + TOTCHOL + BMI 
+                           ),
+                           direction = "backward")
+
+summary(reduced_female_mod)
+```
