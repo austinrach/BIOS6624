@@ -23,6 +23,7 @@ df$SEX <- factor(df$SEX)
 df$DIABETES <- factor(df$DIABETES)
 df$BPMEDS <- factor(df$BPMEDS)
 df$CURSMOKE <- factor(df$CURSMOKE)
+df$PREVCHD <- factor(df$PREVCHD)
 
 #Remove missing baseline values
 df <- df %>% filter(complete.cases(BPMEDS, TOTCHOL, BMI))
@@ -43,14 +44,14 @@ female_df <- filter(df, SEX ==2)
 
 
 ```{r}
-full_male_mod <- coxph(Surv(TIME_STROKE, STROKE) ~ AGE + DIABETES  + SYSBP + BPMEDS + CURSMOKE + TOTCHOL + BMI, 
+full_male_mod <- coxph(Surv(TIME_STROKE, STROKE) ~ AGE + DIABETES  + SYSBP + PREVCHD + BPMEDS + CURSMOKE + TOTCHOL + BMI, 
                     data = male_df)
 
 # Run backwards selection
 reduced_male_mod <- step(full_male_mod,
                          scope = list(
                            lower = ~ AGE + DIABETES + SYSBP,
-                           upper = ~ AGE + DIABETES  + SYSBP + BPMEDS + CURSMOKE + TOTCHOL + BMI 
+                           upper = ~ AGE + DIABETES  + SYSBP + PREVCHD + BPMEDS + CURSMOKE + TOTCHOL + BMI 
                            ),
                          direction = "backward")
 
@@ -58,14 +59,14 @@ summary(reduced_male_mod)
 ```
 
 ```{r}
-full_female_mod <- coxph(Surv(TIME_STROKE, STROKE) ~ AGE + DIABETES  + SYSBP + BPMEDS + CURSMOKE + TOTCHOL + BMI, 
+full_female_mod <- coxph(Surv(TIME_STROKE, STROKE) ~ AGE + DIABETES  + SYSBP + PREVCHD + BPMEDS + CURSMOKE + TOTCHOL + BMI, 
                     data = female_df)
 
 # Run backwards selection
 reduced_female_mod <- step(full_female_mod,
                            scope = list(
                            lower = ~ AGE + DIABETES + SYSBP,
-                           upper = ~ AGE + DIABETES  + SYSBP + BPMEDS + CURSMOKE + TOTCHOL + BMI 
+                           upper = ~ AGE + DIABETES  + SYSBP + PREVCHD + BPMEDS + CURSMOKE + TOTCHOL + BMI 
                            ),
                            direction = "backward")
 
