@@ -58,6 +58,80 @@ reduced_male_mod <- step(full_male_mod,
 summary(reduced_male_mod)
 ```
 
+
+
+```{r}
+male_mean_chol <- mean(male_df$TOTCHOL, na.rm = TRUE)
+male_mean_bmi  <- mean(male_df$BMI, na.rm = TRUE)
+
+male_newdata <- expand.grid(
+  AGE = c(40, 50, 60),
+  DIABETES = c(0, 1),
+  SYSBP = c("normal", "high")
+)
+
+# define what "high" means
+male_high_bp <- quantile(male_df$SYSBP, 0.75, na.rm = TRUE)
+male_normal_bp <- mean(male_df$SYSBP, na.rm = TRUE)
+
+male_newdata$SYSBP <- ifelse(male_newdata$SYSBP == "high", male_high_bp, male_normal_bp)
+
+male_newdata$PREVCHD  <- 0
+male_newdata$BPMEDS   <- 0
+male_newdata$CURSMOKE <- 0
+male_newdata$TOTCHOL  <- male_mean_chol
+male_newdata$BMI      <- male_mean_bmi
+
+male_newdata$profile <- with(male_newdata, paste0(
+  "Age ", AGE, " | ",
+  ifelse(DIABETES == 1, "Diabetes", "No Diabetes"), " | ",
+  ifelse(SYSBP == male_high_bp, "High BP", "Normal BP")
+))
+
+
+male_prob_fit <- survfit(reduced_male_mod, newdata = male_newdata)
+
+
+male_prob_fit_10 <- summary(male_prob_fit, times = 365.25*10)
+
+male_results <- data.frame(
+  profile = male_newdata$profile,
+  AGE = male_newdata$AGE,
+  survival_10yr = as.vector(male_prob_fit_10$surv)
+)
+
+male_results$risk_10yr <- paste0(round((1 - male_results$survival_10yr)*100,3),"%")
+male_results
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ```{r}
 full_female_mod <- coxph(Surv(TIME_STROKE, STROKE) ~ AGE + DIABETES  + SYSBP + PREVCHD + BPMEDS + CURSMOKE + TOTCHOL + BMI, 
                     data = female_df)
@@ -72,3 +146,47 @@ reduced_female_mod <- step(full_female_mod,
 
 summary(reduced_female_mod)
 ```
+```{r}
+female_mean_chol <- mean(female_df$TOTCHOL, na.rm = TRUE)
+female_mean_bmi  <- mean(female_df$BMI, na.rm = TRUE)
+
+female_newdata <- expand.grid(
+  AGE = c(40, 50, 60),
+  DIABETES = c(0, 1),
+  SYSBP = c("normal", "high")
+)
+
+# define what "high" means
+female_high_bp <- quantile(female_df$SYSBP, 0.75, na.rm = TRUE)
+female_normal_bp <- mean(female_df$SYSBP, na.rm = TRUE)
+
+female_newdata$SYSBP <- ifelse(female_newdata$SYSBP == "high", female_high_bp, female_normal_bp)
+
+female_newdata$PREVCHD  <- 0
+female_newdata$BPMEDS   <- 0
+female_newdata$CURSMOKE <- 0
+female_newdata$TOTCHOL  <- male_mean_chol
+female_newdata$BMI      <- male_mean_bmi
+
+female_newdata$profile <- with(female_newdata, paste0(
+  "Age ", AGE, " | ",
+  ifelse(DIABETES == 1, "Diabetes", "No Diabetes"), " | ",
+  ifelse(SYSBP == male_high_bp, "High BP", "Normal BP")
+))
+
+
+female_prob_fit <- survfit(reduced_female_mod, newdata = female_newdata)
+
+
+female_prob_fit_10 <- summary(female_prob_fit, times = 365.25*10)
+
+female_results <- data.frame(
+  profile = female_newdata$profile,
+  AGE = female_newdata$AGE,
+  survival_10yr = as.vector(female_prob_fit_10$surv)
+)
+
+female_results$risk_10yr <- 1 - female_results$survival_10yr
+female_results
+```
+
