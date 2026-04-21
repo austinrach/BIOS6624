@@ -25,11 +25,11 @@ df$BPMEDS <- factor(df$BPMEDS)
 df$CURSMOKE <- factor(df$CURSMOKE)
 df$PREVCHD <- factor(df$PREVCHD)
 
-#Remove missing baseline values
+#Remove missing baseline values - below list is var with NA values in table one
 df <- df %>% filter(complete.cases(BPMEDS, TOTCHOL, BMI))
 ```
 
-#Preliminary Visualizations
+Preliminary Visualizations
 ```{r}
 surv <- survfit(Surv(TIME_STROKE, STROKE)~SEX, data = df)
 ggsurvplot(surv, censor = F)
@@ -42,19 +42,14 @@ male_df <- filter(df, SEX ==1)
 female_df <- filter(df, SEX ==2)
 ```
 
-Schoenfield Residuals
-```{r}
-#ph <- cox.zph(surv)
-
-```
-
 Manual backwards selection
 ```{r}
 full_male_mod <- coxph(Surv(TIME_STROKE, STROKE) ~ AGE + DIABETES  + SYSBP + PREVCHD + BPMEDS + CURSMOKE + TOTCHOL + BMI, 
                     data = male_df)
-
 summary(full_male_mod)
 ```
+
+
 ```{r}
 reduced_male_mod1 <- update(full_male_mod, . ~ . - PREVCHD)
 summary(reduced_male_mod1)
@@ -66,6 +61,12 @@ reduced_male_mod3 <- update(reduced_male_mod2, . ~  . - TOTCHOL)
 summary(reduced_male_mod3)
 
 reduced_male_mod <- reduced_male_mod3
+```
+
+Schoenfield Residuals
+```{r}
+male_ph_check <- cox.zph(reduced_male_mod)
+male_ph_check
 ```
 
 
@@ -164,6 +165,12 @@ reduced_female_mod <- update(reduced_female_mod4, . ~  . -CURSMOKE)
 summary(reduced_female_mod)
 ```
 
+Schoenfield Residuals
+```{r}
+female_ph_check <- cox.zph(reduced_female_mod)
+female_ph_check
+```
+
 ```{r}
 female_mean_chol <- mean(female_df$TOTCHOL, na.rm = TRUE)
 female_mean_bmi  <- mean(female_df$BMI, na.rm = TRUE)
@@ -187,7 +194,7 @@ female_newdata$BMI      <- female_mean_bmi
 female_newdata$profile <- with(female_newdata, paste0(
   "Age ", AGE, " | ",
   ifelse(DIABETES == 1, "Diabetes", "No Diabetes"), " | ",
-  ifelse(SYSBP == male_high_bp, "High BP", "Normal BP")
+  ifelse(SYSBP == female_high_bp, "High BP", "Normal BP")
 ))
 
 
