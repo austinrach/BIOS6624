@@ -42,39 +42,46 @@ male_df <- filter(df, SEX ==1)
 female_df <- filter(df, SEX ==2)
 ```
 
+Schoenfield Residuals
+```{r}
+#ph <- cox.zph(surv)
 
+```
+
+Manual backwards selection
 ```{r}
 full_male_mod <- coxph(Surv(TIME_STROKE, STROKE) ~ AGE + DIABETES  + SYSBP + PREVCHD + BPMEDS + CURSMOKE + TOTCHOL + BMI, 
                     data = male_df)
 
-# Run backwards selection
-reduced_male_mod <- step(full_male_mod,
-                         scope = list(
-                           lower = ~ AGE + DIABETES + SYSBP,
-                           upper = ~ AGE + DIABETES  + SYSBP + PREVCHD + BPMEDS + CURSMOKE + TOTCHOL + BMI 
-                           ),
-                         direction = "backward")
-
-summary(reduced_male_mod)
+summary(full_male_mod)
 ```
+```{r}
+reduced_male_mod1 <- update(full_male_mod, . ~ . - PREVCHD)
+summary(reduced_male_mod1)
 
+reduced_male_mod2 <- update(reduced_male_mod1, . ~ . - BMI)
+summary(reduced_male_mod2)
+
+reduced_male_mod3 <- update(reduced_male_mod2, . ~  . - TOTCHOL)
+summary(reduced_male_mod3)
+
+reduced_male_mod <- reduced_male_mod3
+```
 
 
 ```{r}
 male_mean_chol <- mean(male_df$TOTCHOL, na.rm = TRUE)
 male_mean_bmi  <- mean(male_df$BMI, na.rm = TRUE)
 
+# Define high SYSBP
+male_high_bp <- 160
+male_normal_bp <- mean(male_df$SYSBP, na.rm = TRUE)
+
 male_newdata <- expand.grid(
   AGE = c(40, 50, 60),
   DIABETES = c(0, 1),
-  SYSBP = c("normal", "high")
+  SYSBP = c(male_normal_bp, male_high_bp)
 )
-
-# define what "high" means
-male_high_bp <- quantile(male_df$SYSBP, 0.75, na.rm = TRUE)
-male_normal_bp <- mean(male_df$SYSBP, na.rm = TRUE)
-
-male_newdata$SYSBP <- ifelse(male_newdata$SYSBP == "high", male_high_bp, male_normal_bp)
 
 male_newdata$PREVCHD  <- 0
 male_newdata$BPMEDS   <- 0
@@ -136,37 +143,46 @@ male_results
 full_female_mod <- coxph(Surv(TIME_STROKE, STROKE) ~ AGE + DIABETES  + SYSBP + PREVCHD + BPMEDS + CURSMOKE + TOTCHOL + BMI, 
                     data = female_df)
 
-# Run backwards selection
-reduced_female_mod <- step(full_female_mod,
-                           scope = list(
-                           lower = ~ AGE + DIABETES + SYSBP,
-                           upper = ~ AGE + DIABETES  + SYSBP + PREVCHD + BPMEDS + CURSMOKE + TOTCHOL + BMI 
-                           ),
-                           direction = "backward")
+summary(full_female_mod)
+```
 
+Manual Backwards Selection
+```{r}
+reduced_female_mod1 <- update(full_female_mod, . ~ . - BMI)
+summary(reduced_female_mod1)
+
+reduced_female_mod2 <- update(reduced_female_mod1, . ~ . - TOTCHOL)
+summary(reduced_female_mod2)
+
+reduced_female_mod3 <- update(reduced_female_mod2, . ~  . - BPMEDS)
+summary(reduced_female_mod3)
+
+reduced_female_mod4 <- update(reduced_female_mod3, . ~ . -PREVCHD)
+summary(reduced_female_mod4)
+
+reduced_female_mod <- update(reduced_female_mod4, . ~  . -CURSMOKE)
 summary(reduced_female_mod)
 ```
+
 ```{r}
 female_mean_chol <- mean(female_df$TOTCHOL, na.rm = TRUE)
 female_mean_bmi  <- mean(female_df$BMI, na.rm = TRUE)
 
+# Define high SYSBP
+female_high_bp <- 160
+female_normal_bp <- mean(female_df$SYSBP, na.rm = TRUE)
+
 female_newdata <- expand.grid(
   AGE = c(40, 50, 60),
   DIABETES = c(0, 1),
-  SYSBP = c("normal", "high")
+  SYSBP = c(female_normal_bp, female_high_bp)
 )
-
-# define what "high" means
-female_high_bp <- quantile(female_df$SYSBP, 0.75, na.rm = TRUE)
-female_normal_bp <- mean(female_df$SYSBP, na.rm = TRUE)
-
-female_newdata$SYSBP <- ifelse(female_newdata$SYSBP == "high", female_high_bp, female_normal_bp)
 
 female_newdata$PREVCHD  <- 0
 female_newdata$BPMEDS   <- 0
 female_newdata$CURSMOKE <- 0
-female_newdata$TOTCHOL  <- male_mean_chol
-female_newdata$BMI      <- male_mean_bmi
+female_newdata$TOTCHOL  <- female_mean_chol
+female_newdata$BMI      <- female_mean_bmi
 
 female_newdata$profile <- with(female_newdata, paste0(
   "Age ", AGE, " | ",
