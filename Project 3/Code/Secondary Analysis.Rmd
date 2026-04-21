@@ -1,0 +1,144 @@
+---
+title: "Untitled"
+author: "Rachel Austin"
+date: "2026-04-20"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(gtsummary)
+library(tidyr)
+library(openxlsx)
+library(tidyverse)
+library(gt)
+```
+
+```{r}
+df <- read.xlsx("/Users/austinra/BIOS6624/Project 3/Data Processed/covariate_df.xlsx")
+```
+
+```{r}
+
+#Claude helped create this code based on my specified table goals
+# --- Define variable types ---
+continuous_vars <- c("AGE", "SYSBP", "TOTCHOL", "BMI")
+binary_vars     <- c("DIABETES", "BPMEDS", "CURSMOKE")
+all_vars        <- c(continuous_vars, binary_vars)
+
+# --- Reshape to long format ---
+df_long <- df %>%
+  pivot_longer(
+    cols = -c(RANDID, STROKE, TIME_STROKE),
+    names_to = c(".value", "period"),
+    names_pattern = "^(\\D+)(\\d)$"
+  ) %>%
+  mutate(period = factor(period, levels = c("1","2","3"),
+                         labels = c("Period 1", "Period 2", "Period 3")))
+
+# --- Total N per period ---
+total_n <- df_long %>%
+  group_by(period) %>%
+  summarise(total_N = sum(rowSums(!is.na(across(all_of(all_vars)))) > 0),
+            .groups = "drop")
+
+# --- Summarise continuous vars ---
+cont_summary <- df_long %>%
+  group_by(period) %>%
+  summarise(across(all_of(continuous_vars),
+                   list(n = ~sum(!is.na(.)),
+                        mean = ~mean(., na.rm = TRUE),
+                        sd   = ~sd(.,   na.rm = TRUE)),
+                   .names = "{.col}__{.fn}"),
+            .groups = "drop") %>%
+  pivot_longer(-period, names_to = c("variable", "stat"), names_sep = "__") %>%
+  pivot_wider(names_from = stat, values_from = value) %>%
+  mutate(summary = paste0(round(mean, 1), " (", round(sd, 1), ")"),
+         n = as.integer(n)) %>%
+  select(variable, period, n, summary)
+
+# --- Summarise binary vars ---
+bin_summary <- df_long %>%
+  group_by(period) %>%
+  summarise(across(all_of(binary_vars),
+                   list(n   = ~sum(!is.na(.)),
+                        pct = ~round(100 * mean(., na.rm = TRUE), 1)),
+                   .names = "{.col}__{.fn}"),
+            .groups = "drop") %>%
+  pivot_longer(-period, names_to = c("variable", "stat"), names_sep = "__") %>%
+  pivot_wider(names_from = stat, values_from = value) %>%
+  mutate(summary = paste0(pct, "%"),
+         n = as.integer(n)) %>%
+  select(variable, period, n, summary)
+
+# --- Combine and widen by period ---
+all_summary <- bind_rows(cont_summary, bin_summary) %>%
+  pivot_wider(
+    names_from  = period,
+    values_from = c(n, summary),
+    names_glue  = "{period}_{.value}"
+  ) %>%
+  select(variable,
+         `Period 1_n`, `Period 1_summary`,
+         `Period 2_n`, `Period 2_summary`,
+         `Period 3_n`, `Period 3_summary`)
+
+# --- Build per-period N label for row group headers ---
+n_labels <- total_n %>%
+  deframe()  # named vector: "Period 1" = 1900, etc.
+
+period1_label <- paste0("Period 1 — N = ", n_labels["Period 1"])
+period2_label <- paste0("Period 2 — N = ", n_labels["Period 2"])
+period3_label <- paste0("Period 3 — N = ", n_labels["Period 3"])
+
+# --- Add a row group column based on per-variable n ---
+# This inserts a "N = X / total" note per variable under each period header
+all_summary <- all_summary %>%
+  mutate(
+    variable = recode(variable,
+                      AGE       = "Age (years)",
+                      SYSBP     = "Systolic BP (mmHg)",
+                      TOTCHOL   = "Total Cholesterol (mg/dL)",
+                      BMI       = "BMI (kg/m²)",
+                      DIABETES  = "Diabetes (%)",
+                      BPMEDS    = "BP Medication (%)",
+                      CURSMOKE  = "Current Smoker (%)")
+  )
+
+# --- Render with gt ---
+all_summary %>%
+  gt() %>%
+  # Spanner headers for each period (no n/N in column headers)
+  cols_label(
+    variable         = "Variable",
+    `Period 1_n`     = "n", `Period 1_summary` = "Value",
+    `Period 2_n`     = "n", `Period 2_summary` = "Value",
+    `Period 3_n`     = "n", `Period 3_summary` = "Value"
+  ) %>%
+  tab_spanner(
+    label   = md(paste0("**Period 1**<br>N = ", n_labels["Period 1"])),
+    columns = c(`Period 1_n`, `Period 1_summary`)
+  ) %>%
+  tab_spanner(
+    label   = md(paste0("**Period 2**<br>N = ", n_labels["Period 2"])),
+    columns = c(`Period 2_n`, `Period 2_summary`)
+  ) %>%
+  tab_spanner(
+    label   = md(paste0("**Period 3**<br>N = ", n_labels["Period 3"])),
+    columns = c(`Period 3_n`, `Period 3_summary`)
+  ) %>%
+  tab_footnote("n = non-missing observations for that variable. Continuous variables: Mean (SD); Binary variables: %.") %>%
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_column_spanners()
+  ) %>%
+  opt_row_striping() %>%
+  opt_table_font(font = "Calibri") %>%
+  tab_options(
+    table.font.size       = 13,
+    heading.align         = "left",
+    column_labels.font.weight = "bold"
+  )
+```
+
