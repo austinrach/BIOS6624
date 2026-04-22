@@ -47,74 +47,134 @@ total_n <- df_long %>%
 cont_summary <- df_long %>%
   group_by(period) %>%
   summarise(across(all_of(continuous_vars),
-                   list(n = ~sum(!is.na(.)),
+                   list(n    = ~sum(!is.na(.)),
                         mean = ~mean(., na.rm = TRUE),
                         sd   = ~sd(.,   na.rm = TRUE)),
                    .names = "{.col}__{.fn}"),
             .groups = "drop") %>%
   pivot_longer(-period, names_to = c("variable", "stat"), names_sep = "__") %>%
   pivot_wider(names_from = stat, values_from = value) %>%
-  mutate(summary = paste0(round(mean, 1), " (", round(sd, 1), ")"),
-         n = as.integer(n)) %>%
-  select(variable, period, n, summary)
+  mutate(
+    summary  = paste0(round(mean, 1), " (", round(sd, 1), ")"),
+    n        = as.integer(n),
+    var_group = variable,          # parent label
+    level    = NA_character_,      # no level for continuous
+    indent   = FALSE
+  ) %>%
+  select(var_group, level, indent, variable, period, n, summary)
 
-# --- Summarise binary vars ---
+# --- Summarise binary vars: one row per level (0 and 1) ---
 bin_summary <- df_long %>%
-  group_by(period) %>%
-  summarise(across(all_of(binary_vars),
-                   list(n   = ~sum(!is.na(.)),
-                        pct = ~round(100 * mean(., na.rm = TRUE), 1)),
-                   .names = "{.col}__{.fn}"),
-            .groups = "drop") %>%
-  pivot_longer(-period, names_to = c("variable", "stat"), names_sep = "__") %>%
-  pivot_wider(names_from = stat, values_from = value) %>%
-  mutate(summary = paste0(pct, "%"),
-         n = as.integer(n)) %>%
-  select(variable, period, n, summary)
+  select(period, all_of(binary_vars)) %>%
+  pivot_longer(-period, names_to = "variable", values_to = "value") %>%
+  filter(!is.na(value)) %>%
+  group_by(period, variable) %>%
+  mutate(total_n_var = n()) %>%
+  group_by(period, variable, value, total_n_var) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  mutate(
+    pct     = round(100 * count / total_n_var, 1),
+    summary = paste0(count, " (", pct, "%)"),  # n (%) format — more informative than % alone
+    n       = as.integer(total_n_var),
+    level   = case_when(
+      variable == "DIABETES" & value == 0 ~ "No Diabetes",
+      variable == "DIABETES" & value == 1 ~ "Diabetes",
+      variable == "BPMEDS"   & value == 0 ~ "No BP Medication",
+      variable == "BPMEDS"   & value == 1 ~ "BP Medication",
+      variable == "CURSMOKE" & value == 0 ~ "Non-Smoker",
+      variable == "CURSMOKE" & value == 1 ~ "Current Smoker",
+      TRUE ~ as.character(value)
+    ),
+    var_group = variable,
+    indent    = TRUE                          # flag for indenting level rows
+  ) %>%
+  arrange(variable, value) %>%
+  select(var_group, level, indent, variable = level, period, n, summary)
+  # ^^^ use level label as the display "variable" for the row
 
-# --- Combine and widen by period ---
-all_summary <- bind_rows(cont_summary, bin_summary) %>%
+# --- Combine ---
+# We need header rows for binary vars (just the var name, no summary)
+bin_headers <- bin_summary %>%
+  distinct(var_group) %>%
+  mutate(
+    level     = NA_character_,
+    indent    = FALSE,
+    variable  = recode(var_group,
+                       DIABETES = "Diabetes",
+                       BPMEDS   = "BP Medication",
+                       CURSMOKE = "Current Smoker (%)"),
+    period    = NA,
+    n         = NA_integer_,
+    summary   = NA_character_
+  )
+
+# Recode continuous var labels
+cont_summary <- cont_summary %>%
+  mutate(variable = recode(variable,
+                           AGE     = "Age (years)",
+                           SYSBP   = "Systolic BP (mmHg)",
+                           TOTCHOL = "Total Cholesterol (mg/dL)",
+                           BMI     = "BMI (kg/m²)"))
+
+# --- Define display order ---
+var_order <- c(
+  "AGE", "SYSBP", "TOTCHOL", "BMI",
+  "DIABETES", "BPMEDS", "CURSMOKE"
+)
+
+all_long <- bind_rows(
+  cont_summary %>% mutate(sort_key = match(var_group, var_order), level_key = 0),
+  bin_headers  %>% mutate(sort_key = match(var_group, var_order), level_key = 0),
+  bin_summary  %>% mutate(sort_key = match(var_group, var_order),
+                          level_key = if_else(grepl("No |Non-", variable), 1, 2))
+) %>%
+  arrange(sort_key, level_key)
+
+# --- Widen by period ---
+all_wide <- all_long %>%
+  filter(!is.na(period)) %>%
   pivot_wider(
+    id_cols     = c(var_group, level, indent, variable, sort_key, level_key),
     names_from  = period,
     values_from = c(n, summary),
     names_glue  = "{period}_{.value}"
   ) %>%
-  select(variable,
+  arrange(sort_key, level_key)
+
+# Add header rows back (they have no period data)
+header_rows <- all_long %>%
+  filter(is.na(period)) %>%
+  select(var_group, level, indent, variable, sort_key, level_key) %>%
+  mutate(
+    `Period 1_n` = NA_integer_, `Period 1_summary` = "",   
+    `Period 2_n` = NA_integer_, `Period 2_summary` = "",
+    `Period 3_n` = NA_integer_, `Period 3_summary` = ""
+  )
+final_tbl <- bind_rows(all_wide, header_rows) %>%
+  arrange(sort_key, level_key) %>%
+  select(indent, variable,
          `Period 1_n`, `Period 1_summary`,
          `Period 2_n`, `Period 2_summary`,
-         `Period 3_n`, `Period 3_summary`)
+         `Period 3_n`, `Period 3_summary`) %>%
+  mutate(across(ends_with("_summary"), ~if_else(is.na(.), "", .))) %>%
+  mutate(across(ends_with("_n"), ~as.character(.))) %>%
+  mutate(across(ends_with("_n"), ~if_else(is.na(.), "", .)))
 
-# --- Build per-period N label for row group headers ---
-n_labels <- total_n %>%
-  deframe()  # named vector: "Period 1" = 1900, etc.
+# --- N labels for spanners ---
+n_labels <- total_n %>% deframe()
 
-period1_label <- paste0("Period 1 — N = ", n_labels["Period 1"])
-period2_label <- paste0("Period 2 — N = ", n_labels["Period 2"])
-period3_label <- paste0("Period 3 — N = ", n_labels["Period 3"])
-
-# --- Add a row group column based on per-variable n ---
-# This inserts a "N = X / total" note per variable under each period header
-all_summary <- all_summary %>%
-  mutate(
-    variable = recode(variable,
-                      AGE       = "Age (years)",
-                      SYSBP     = "Systolic BP (mmHg)",
-                      TOTCHOL   = "Total Cholesterol (mg/dL)",
-                      BMI       = "BMI (kg/m²)",
-                      DIABETES  = "Diabetes (%)",
-                      BPMEDS    = "BP Medication (%)",
-                      CURSMOKE  = "Current Smoker (%)")
-  )
+# --- Identify rows to indent (binary level rows) ---
+indent_rows <- which(final_tbl$indent)
 
 # --- Render with gt ---
-all_summary %>%
+final_tbl %>%
+  select(-indent) %>%
   gt() %>%
-  # Spanner headers for each period (no n/N in column headers)
   cols_label(
-    variable         = "Variable",
-    `Period 1_n`     = "n", `Period 1_summary` = "Value",
-    `Period 2_n`     = "n", `Period 2_summary` = "Value",
-    `Period 3_n`     = "n", `Period 3_summary` = "Value"
+    variable           = "Variable",
+    `Period 1_n`       = "n", `Period 1_summary` = "Value",
+    `Period 2_n`       = "n", `Period 2_summary` = "Value",
+    `Period 3_n`       = "n", `Period 3_summary` = "Value"
   ) %>%
   tab_spanner(
     label   = md(paste0("**Period 1**<br>N = ", n_labels["Period 1"])),
@@ -128,17 +188,36 @@ all_summary %>%
     label   = md(paste0("**Period 3**<br>N = ", n_labels["Period 3"])),
     columns = c(`Period 3_n`, `Period 3_summary`)
   ) %>%
-  tab_footnote("n = non-missing observations for that variable. Continuous variables: Mean (SD); Binary variables: %.") %>%
+  # Indent the level rows
+ tab_style(
+    style     = cell_text(weight = "bold"),
+    locations = cells_body(
+      columns = variable,
+      rows    = which(final_tbl$`Period 1_summary` == "")  # match "" instead of is.na()
+    )
+  ) %>%
+  # Bold the binary header rows (no summary values)
   tab_style(
-    style = cell_text(weight = "bold"),
+    style     = cell_text(weight = "bold"),
+    locations = cells_body(
+      columns = variable,
+      rows = which(final_tbl$`Period 1_summary` == "")
+    )
+  ) %>%
+  tab_footnote("n = total non-missing for that variable. Continuous: Mean (SD); Binary: n (%).") %>%
+  tab_style(
+    style     = cell_text(weight = "bold"),
     locations = cells_column_spanners()
   ) %>%
   opt_row_striping() %>%
   opt_table_font(font = "Calibri") %>%
   tab_options(
-    table.font.size       = 13,
-    heading.align         = "left",
+    table.font.size           = 13,
+    heading.align             = "left",
     column_labels.font.weight = "bold"
   )
+
+
 ```
+
 
