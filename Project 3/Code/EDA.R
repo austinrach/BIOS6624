@@ -2,6 +2,7 @@ library(dplyr)
 library(gtsummary)
 library(tidyr)
 library(openxlsx)
+library(gt)
 
 df <- read.csv("/Users/austinra/BIOS6624/Project 3/Data Raw/frmgham2.csv")
 
@@ -71,6 +72,13 @@ table1 <- df_baseline %>%
   modify_header(label = "**Variable**")
 
 table1
+
+table1_gt <- as_gt(table1)
+
+gtsave(
+  data = table1_gt,
+  filename = "/Users/austinra/BIOS6624/Project 3/Figures/Table1.png"
+)
 
 #Show numeric not character
 df_baseline <- df_baseline %>%
