@@ -39,41 +39,49 @@ df_baseline$TIME_STROKE <- ifelse(df_baseline$TIMESTRK > 365.25*10, 365.25*10, d
 df_baseline <- df_baseline %>%
   mutate(
     SEX = factor(SEX, levels = c(1,2), labels = c("Male","Female")),
-    STROKE = factor(STROKE, levels = c(0,1), labels = c("No Stroke","Stroke")),
     PREVCHD = factor(PREVCHD, levels = c(0,1), labels = c("Free of disease", "Prevalent Disease")),
     DIABETES = factor(DIABETES, levels = c(0,1), labels = c("No Diabetes", "Diabetes")),
     BPMEDS = factor(BPMEDS, levels = c(0,1), labels = c("Not on Hypertension Meds", "On Hypertension Meds")),
-    CURSMOKE = factor(CURSMOKE, levels = c(0,1), labels = c("Not a current smoker", "Current smoker"))
+    CURSMOKE = factor(CURSMOKE, levels = c(0,1), labels = c("Not a current smoker", "Current smoker")),
+    TIME_STROKE_CASE = dplyr::if_else(STROKE == 1, TIME_STROKE, NA_real_)
   )
+
+df_baseline <- df_baseline %>% mutate(
+  STROKE = factor(STROKE, levels = c(0,1), labels = c("No Stroke","Stroke")))
+
 
 # Table 1: baseline covariates stratified by sex
 table1 <- df_baseline %>%
-  select(SEX, STROKE, TIME_STROKE, AGE, DIABETES, SYSBP, PREVCHD, BPMEDS, CURSMOKE, TOTCHOL, BMI) %>%
+  select(
+    SEX, STROKE, TIME_STROKE_CASE,
+    AGE, DIABETES, SYSBP, PREVCHD, BPMEDS, CURSMOKE, TOTCHOL, BMI
+  ) %>%
   tbl_summary(
     by = SEX,
+    type = list(TIME_STROKE_CASE ~ "continuous"),
     statistic = list(
       all_continuous() ~ "{mean} ({sd})",
       all_categorical() ~ "{n} ({p}%)"
     ),
     label = list(
-      TIME_STROKE ~ "Time to Stroke (days)",
+      TIME_STROKE_CASE ~ "Time to Stroke Among Cases (days)",
       STROKE ~ "Stroke within 10 years",
       AGE ~ "Age (years)",
       DIABETES ~ "Diabetes",
-      SYSBP ~ "Systolic Blood Pressure (mmHG)",
+      SYSBP ~ "Systolic Blood Pressure (mmHg)",
       PREVCHD ~ "Prevalent Coronary Heart Disease",
       BPMEDS ~ "Blood Pressure Medications",
       CURSMOKE ~ "Current Smoker",
       TOTCHOL ~ "Total Cholesterol",
       BMI ~ "BMI"
-    )
+    ),
+    missing = "no"
   ) %>%
   add_overall() %>%
   modify_header(label = "**Variable**")
 
-table1
-
 table1_gt <- as_gt(table1)
+
 
 gtsave(
   data = table1_gt,
