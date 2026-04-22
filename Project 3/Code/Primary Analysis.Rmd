@@ -65,7 +65,6 @@ ggsurvplot(km_male_age,
            xlab = "Time (days)",
            ylab = "Cumulative stroke incidence")
 
-logrank_age
 ```
 Stratified KM - SYSBP
 ```{r}
@@ -132,45 +131,80 @@ male_ph_check
 
 
 ```{r}
-male_mean_chol <- mean(male_df$TOTCHOL, na.rm = TRUE)
-male_mean_bmi  <- mean(male_df$BMI, na.rm = TRUE)
-
-# Define high SYSBP
 male_high_bp <- 160
 male_normal_bp <- mean(male_df$SYSBP, na.rm = TRUE)
 
+# Base profiles (non-smokers)
 male_newdata <- expand.grid(
   AGE = c(40, 50, 60),
   DIABETES = c(0, 1),
   SYSBP = c(male_normal_bp, male_high_bp)
 )
 
-male_newdata$PREVCHD  <- 0
-male_newdata$BPMEDS   <- 0
 male_newdata$CURSMOKE <- 0
-male_newdata$TOTCHOL  <- male_mean_chol
-male_newdata$BMI      <- male_mean_bmi
 
+# Add smoker version ONLY for baseline (no diabetes + normal BP)
+baseline_smoker <- male_newdata %>%
+  filter(DIABETES == 0, SYSBP == male_normal_bp) %>%
+  mutate(CURSMOKE = 1)
+
+# Combine
+male_newdata <- rbind(male_newdata, baseline_smoker)
+
+# Match factor structure
+male_newdata$DIABETES <- factor(
+  male_newdata$DIABETES,
+  levels = levels(male_df$DIABETES)
+)
+
+male_newdata$CURSMOKE <- factor(
+  male_newdata$CURSMOKE,
+  levels = levels(male_df$CURSMOKE)
+)
+
+male_newdata$BPMEDS <- 0
+
+# Labels (no pipes)
 male_newdata$profile <- with(male_newdata, paste0(
-  "Age ", AGE, " | ",
-  ifelse(DIABETES == 1, "Diabetes", "No Diabetes"), " | ",
-  ifelse(SYSBP == male_high_bp, "High BP", "Normal BP")
+  "Age ", AGE, ", ",
+  ifelse(DIABETES == 1, "Diabetes", "No Diabetes"), ", ",
+  ifelse(SYSBP == male_high_bp, "High BP", "Normal BP"),
+  ifelse(CURSMOKE == 1, ", Smoker", "")
 ))
 
-
+# Fit survival
 male_prob_fit <- survfit(reduced_male_mod, newdata = male_newdata)
-
 
 male_prob_fit_10 <- summary(male_prob_fit, times = 365.25*10)
 
 male_results <- data.frame(
   profile = male_newdata$profile,
-  AGE = male_newdata$AGE,
   survival_10yr = as.vector(male_prob_fit_10$surv)
 )
 
-male_results$risk_10yr <- paste0(round((1 - male_results$survival_10yr)*100,3),"%")
-male_results
+male_table <- male_results %>%
+  mutate(
+    survival_pct = round(survival_10yr * 100, 1),
+    risk_pct = round((1 - survival_10yr) * 100, 1)
+  ) %>%
+  mutate(
+    survival_10yr = paste0(survival_pct, "%"),
+    risk_10yr = paste0(risk_pct, "%")
+  ) %>%
+  select(profile, survival_10yr, risk_10yr) %>%
+  rename(
+    Profile = profile,
+    `10-Year Survival` = survival_10yr,
+    `10-Year Stroke Risk` = risk_10yr
+  )
+ 
+
+kable(
+  male_table,
+  align = c("l", "c", "c"),
+  caption = "Predicted 10-Year Survival and Stroke Risk for Male Risk Profiles"
+) %>%
+  kable_styling(full_width = FALSE, position = "left")
 
 ```
 
@@ -219,6 +253,7 @@ ggsurvplot(km_female_age,
            xlab = "Time (days)",
            ylab = "Cumulative stroke incidence")
 ```
+
 Stratified KM - SYSBP
 ```{r}
 female_df$sysbp_group <- ifelse(female_df$SYSBP < 160, "<160", "≥160")
@@ -238,6 +273,7 @@ ggsurvplot(
   ylab = "Cumulative stroke incidence"
 )
 ```
+
 Stratified KM - Diabetes
 ```{r}
 km_diab <- survfit(surv_female ~ DIABETES, data = female_df)
@@ -286,13 +322,14 @@ female_ph_check <- cox.zph(reduced_female_mod)
 female_ph_check
 ```
 
+
 ```{r}
 female_mean_chol <- mean(female_df$TOTCHOL, na.rm = TRUE)
 female_mean_bmi  <- mean(female_df$BMI, na.rm = TRUE)
 
-# Define high SYSBP
-female_high_bp <- 160
+# Define normal and high SYSBP
 female_normal_bp <- mean(female_df$SYSBP, na.rm = TRUE)
+female_high_bp <- 160
 
 female_newdata <- expand.grid(
   AGE = c(40, 50, 60),
@@ -300,21 +337,13 @@ female_newdata <- expand.grid(
   SYSBP = c(female_normal_bp, female_high_bp)
 )
 
-female_newdata$PREVCHD  <- 0
-female_newdata$BPMEDS   <- 0
-female_newdata$CURSMOKE <- 0
-female_newdata$TOTCHOL  <- female_mean_chol
-female_newdata$BMI      <- female_mean_bmi
-
 female_newdata$profile <- with(female_newdata, paste0(
-  "Age ", AGE, " | ",
-  ifelse(DIABETES == 1, "Diabetes", "No Diabetes"), " | ",
+  "Age ", AGE, ", ",
+  ifelse(DIABETES == 1, "Diabetes", "No Diabetes"), ", ",
   ifelse(SYSBP == female_high_bp, "High BP", "Normal BP")
 ))
 
-
 female_prob_fit <- survfit(reduced_female_mod, newdata = female_newdata)
-
 
 female_prob_fit_10 <- summary(female_prob_fit, times = 365.25*10)
 
@@ -325,6 +354,99 @@ female_results <- data.frame(
 )
 
 female_results$risk_10yr <- 1 - female_results$survival_10yr
-female_results
+
+female_table <- female_results %>%
+  mutate(
+    survival_10yr = paste0(round(survival_10yr * 100, 1), "%"),
+    risk_10yr = paste0(round(risk_10yr * 100, 1), "%")
+  ) %>%
+  select(profile, survival_10yr, risk_10yr) %>%
+  rename(
+    Profile = profile,
+    `10-Year Survival` = survival_10yr,
+    `10-Year Stroke Risk` = risk_10yr
+  )
+
+kable(
+  female_table,
+  align = c("l", "c", "c"),
+  caption = "Predicted 10-Year Survival and Stroke Risk for Female Risk Profiles"
+) %>%
+  kable_styling(full_width = FALSE, position = "left")
+```
+
+Combined Hazard Ratio Table for Report
+```{r}
+
+tbl_male <- tbl_regression(
+  reduced_male_mod,
+  exponentiate = TRUE,
+  show_single_row = c(DIABETES, CURSMOKE, BPMEDS),
+  label = list(
+    AGE ~ "Age (per year)",
+    DIABETES ~ "Diabetes",
+    SYSBP ~ "Systolic Blood Pressure (per mmHg)",
+    CURSMOKE ~ "Current Smoker",
+    BPMEDS ~ "Blood Pressure Medication Use"
+  )
+) %>%
+  modify_fmt_fun(
+    estimate ~ function(x) style_number(x, digits = 2),
+    conf.low ~ function(x) style_number(x, digits = 2),
+    conf.high ~ function(x) style_number(x, digits = 2),
+    p.value ~ function(x) style_pvalue(x, digits = 2)
+  ) %>%
+  modify_column_merge(
+    pattern = "{estimate} ({conf.low}, {conf.high})",
+    rows = !is.na(estimate)
+  ) %>%
+  modify_column_hide(c(conf.low, conf.high)) %>%
+  modify_header(
+    label = "**Variable**",
+    estimate = "**Hazard Ratio (95% CI)**",
+    p.value = "**p-value**"
+  ) %>% 
+  modify_caption("**Hazard Ratios for 10-Year Stroke Risk (Males)**")
+
+tbl_male
+
+tbl_female <- tbl_regression(
+  reduced_female_mod,
+  exponentiate = TRUE,
+  show_single_row = c(DIABETES),
+  label = list(
+    AGE ~ "Age (per year)",
+    DIABETES ~ "Diabetes",
+    SYSBP ~ "Systolic Blood Pressure (per mmHg)"
+  )
+) %>%
+  modify_fmt_fun(
+    estimate ~ function(x) style_number(x, digits = 2),
+    conf.low ~ function(x) style_number(x, digits = 2),
+    conf.high ~ function(x) style_number(x, digits = 2),
+    p.value ~ function(x) style_pvalue(x, digits = 2)
+  ) %>%
+  modify_column_merge(
+    pattern = "{estimate} ({conf.low}, {conf.high})",
+    rows = !is.na(estimate)
+  ) %>%
+  modify_column_hide(c(conf.low, conf.high)) %>%
+  modify_header(
+    label = "**Variable**",
+    estimate = "**Hazard Ratio (95% CI)**",
+    p.value = "**p-value**"
+  )%>% 
+  modify_caption("**Hazard Ratios for 10-Year Stroke Risk (Females)**")
+
+tbl_female
+
+# 
+# tbl_combined <- tbl_merge(
+#   tbls = list(tbl_male, tbl_female),
+#   tab_spanner = c("**Males**", "**Females**")
+# ) %>%
+#   bold_labels()
+# 
+# tbl_combined
 ```
 
