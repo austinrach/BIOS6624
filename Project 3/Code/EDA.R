@@ -82,11 +82,12 @@ table1 <- df_baseline %>%
 
 table1_gt <- as_gt(table1)
 
-
 gtsave(
   data = table1_gt,
   filename = "/Users/austinra/BIOS6624/Project 3/Figures/Table1.png"
 )
+
+tapply(df_baseline$TIME_STROKE_CASE, df_baseline$SEX, summary, na.rm = TRUE)
 
 #Show numeric not character
 df_baseline <- df_baseline %>%
