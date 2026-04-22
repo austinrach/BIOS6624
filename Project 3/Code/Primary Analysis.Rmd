@@ -42,6 +42,66 @@ male_df <- filter(df, SEX ==1)
 female_df <- filter(df, SEX ==2)
 ```
 
+Stratified KM - Age
+```{r}
+surv_male <- Surv(time = male_df$TIME_STROKE, event = male_df$STROKE)
+
+quantile(male_df$AGE, probs = c(0, 0.33, 0.66, 1), na.rm = TRUE)
+
+male_df$age_group <- cut(
+  male_df$AGE,
+  breaks = quantile(male_df$AGE, probs = c(0, 0.33, 0.66, 1)),
+  include.lowest = TRUE,
+  labels = c("33-44", "45-54", "55-69")
+)
+
+km_male_age <- survfit(surv_male ~ age_group, data = male_df)
+ggsurvplot(km_male_age, 
+           data = male_df, 
+           risk.table = TRUE,
+           ylim = c(0.90, 1.00),   
+           legend.title = "Age",
+           legend.labs = c("33-44", "45-54", "55-69"),
+           xlab = "Time (days)",
+           ylab = "Cumulative stroke incidence")
+
+logrank_age
+```
+Stratified KM - SYSBP
+```{r}
+male_df$sysbp_group <- ifelse(male_df$SYSBP < 160, "<160", "≥160")
+male_df$sysbp_group <- factor(male_df$sysbp_group, levels = c("<160", "≥160"))
+
+
+km_sysbp <- survfit(surv_male ~ sysbp_group, data = male_df)
+
+ggsurvplot(
+  km_sysbp,
+  data = male_df,           
+  ylim = c(0.8, 1.0),   
+  risk.table = TRUE,
+  legend.title = "Systolic BP",
+  legend.labs = c("<160 mmHg", "≥160 mmHg"),
+  xlab = "Time (days)",
+  ylab = "Cumulative stroke incidence"
+)
+```
+Stratified KM - Diabetes
+```{r}
+km_diab <- survfit(surv_male ~ DIABETES, data = male_df)
+
+ggsurvplot(
+  km_diab,
+  data = male_df,           
+  ylim = c(0.7, 1.0),   
+  risk.table = TRUE,
+  legend.title = "Diabetes",
+  legend.labs = c("No", "Yes"),
+  xlab = "Time (days)",
+  ylab = "Cumulative stroke incidence"
+)
+```
+
 Manual backwards selection
 ```{r}
 full_male_mod <- coxph(Surv(TIME_STROKE, STROKE) ~ AGE + DIABETES  + SYSBP + PREVCHD + BPMEDS + CURSMOKE + TOTCHOL + BMI, 
@@ -61,6 +121,7 @@ reduced_male_mod3 <- update(reduced_male_mod2, . ~  . - TOTCHOL)
 summary(reduced_male_mod3)
 
 reduced_male_mod <- reduced_male_mod3
+summary(reduced_male_mod)
 ```
 
 Schoenfield Residuals
@@ -135,9 +196,63 @@ male_results
 
 
 
+Stratified KM - Age
+```{r}
+surv_female <- Surv(time = female_df$TIME_STROKE, event = female_df$STROKE)
+
+quantile(female_df$AGE, probs = c(0, 0.33, 0.66, 1), na.rm = TRUE)
+
+female_df$age_group <- cut(
+  female_df$AGE,
+  breaks = quantile(female_df$AGE, probs = c(0, 0.33, 0.66, 1)),
+  include.lowest = TRUE,
+  labels = c("32-45", "46-54", "55-70")
+)
+
+km_female_age <- survfit(surv_female ~ age_group, data = female_df)
+ggsurvplot(km_female_age, 
+           data = female_df, 
+           risk.table = TRUE,
+           ylim = c(0.90, 1.00),   
+           legend.title = "Age Range",
+           legend.labs = c("32-45", "46-54", "55-70"),
+           xlab = "Time (days)",
+           ylab = "Cumulative stroke incidence")
+```
+Stratified KM - SYSBP
+```{r}
+female_df$sysbp_group <- ifelse(female_df$SYSBP < 160, "<160", "≥160")
+female_df$sysbp_group <- factor(female_df$sysbp_group, levels = c("<160", "≥160"))
 
 
+km_sysbp <- survfit(surv_female ~ sysbp_group, data = female_df)
 
+ggsurvplot(
+  km_sysbp,
+  data = female_df,           
+  ylim = c(0.8, 1.0),   
+  risk.table = TRUE,
+  legend.title = "Systolic BP",
+  legend.labs = c("<160 mmHg", "≥160 mmHg"),
+  xlab = "Time (days)",
+  ylab = "Cumulative stroke incidence"
+)
+```
+Stratified KM - Diabetes
+```{r}
+km_diab <- survfit(surv_female ~ DIABETES, data = female_df)
+
+ggsurvplot(
+  km_diab,
+  data = female_df,           
+  ylim = c(0.8, 1.0),   
+  risk.table = TRUE,
+  legend.title = "Diabetes",
+  legend.labs = c("No", "Yes"),
+  xlab = "Time (days)",
+  ylab = "Cumulative stroke incidence"
+)
+```
 
 
 ```{r}
