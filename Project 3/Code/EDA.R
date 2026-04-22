@@ -75,12 +75,18 @@ table1 <- df_baseline %>%
       TOTCHOL ~ "Total Cholesterol",
       BMI ~ "BMI"
     ),
-    missing = "no"
+    missing = "ifany",
+    missing_text = "Missing" 
   ) %>%
   add_overall() %>%
-  modify_header(label = "**Variable**")
+  modify_header(label = "**Variable**") %>%
+  modify_table_body(
+    ~ .x %>%
+      dplyr::filter(!(variable == "TIME_STROKE_CASE" & row_type == "missing"))
+  )
 
 table1_gt <- as_gt(table1)
+
 
 gtsave(
   data = table1_gt,
