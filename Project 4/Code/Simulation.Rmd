@@ -12,7 +12,8 @@ library(future.apply)
 library(furrr)
 library(hdrm)
 library(glmnet)
-
+library(dplyr)
+library(harvestr)
 ```
 Potential Cases:
 For all 
@@ -137,6 +138,435 @@ harvest <- function(mod_obj      # result model object from the reduction
   return(res_dat)
 }
 
+#results extraction function for glmnet
 
-testit <- harvest(pval_redux, param = betas, alpha = 0.01)
+
+harvest_glmnet <- function(cv_obj,
+                           param,
+                           method,
+                           n,
+                           rho,
+                           s = "lambda.min") {
+  
+  # extract coefficients at chosen lambda
+  coef_obj <- coef(cv_obj, s = s)
+  
+  coef_df <- data.frame(
+    variables = rownames(coef_obj),
+    estimate  = as.numeric(coef_obj)
+  )
+  
+  # remove intercept
+  coef_df <- subset(coef_df, variables != "(Intercept)")
+  
+  # build results table
+  res_dat <- data.frame(
+    variables   = sprintf("V%02d", 1:length(param)),
+    true_values = param
+  )
+  
+  # align estimates with variable list
+  res_dat$estimate <- coef_df$estimate[
+    match(res_dat$variables, coef_df$variables)
+  ]
+  
+  # unselected variables have coefficient 0
+  res_dat$estimate[is.na(res_dat$estimate)] <- 0
+  
+  # same indicators as harvest()
+  res_dat$true_non_zero <- ifelse(
+    res_dat$variables %in% sprintf("V%02d", 1:5),
+    1,
+    0
+  )
+  
+  res_dat$selected <- ifelse(res_dat$estimate != 0, 1, 0)
+  
+  # glmnet does not give p-values or Wald CIs
+  res_dat$signif  <- NA
+  res_dat$LCL     <- NA
+  res_dat$UCL     <- NA
+  res_dat$covered <- NA
+  
+  # metadata
+  res_dat$method <- method
+  res_dat$n      <- n
+  res_dat$rho    <- rho
+  
+  # reorder columns to match your p-value output
+  res_dat <- res_dat[, c(
+    "variables",
+    "true_values",
+    "true_non_zero",
+    "signif",
+    "selected",
+    "LCL",
+    "UCL",
+    "covered",
+    "method",
+    "n",
+    "rho"
+  )]
+  
+  return(res_dat)
+}
+
+testEN_res <- harvest_glmnet(
+  cv_obj = EN_redux,
+  param  = param,
+  method = "Elastic Net min",
+  n      = n,
+  rho    = rho,
+  s      = "lambda.min"
+)
+
+testit <- harvest(pval_redux, param = betas, alpha = 0.05)
 ```
+
+
+
+## Simu function: generating data and running analyses
+
+In this function I propose to encode the process of running one simulation iteration collecting and returning the results.
+
+```{r}
+
+simfunc <- function(n, rho) {
+  
+  # create simulated data
+  param <- c(1/6, 1/3, 1/2, 2/3, 5/6, rep(0, 15))
+  dat_obj <- gen_data(n = n 
+                 ,p = 20
+                 ,p1 = 5
+                 ,beta = param
+                 ,family = 'gaussian'
+                 ,corr = 'exchangeable'
+                 ,rho = rho
+                 ) 
+  dat <- data.frame(y=dat_obj$y, dat_obj$X)
+
+  # reduction by p-values, AIC, BIC
+  sat_model <- lm(y ~ ., data = dat)
+
+  ## p-values
+  pval_redux <- step(sat_model
+                    ,direction = 'backward'
+                    ,trace = 0
+                    ,k = qchisq(1-0.05, 1)
+                    )
+  pval_res <- harvest(mod_obj = pval_redux  # result model object from the reduction
+                     ,param   = param       # simulation target betas
+                     ,alpha   = 0.05        # crit for coverage and error computation
+  )
+  pval_res$method <- 'PVAL'
+  pval_res$n      <- n
+  pval_res$rho    <- rho
+  
+  ## AIC
+  AIC_redux <- step(sat_model
+                    ,direction = 'backward'
+                    ,trace = 0
+                    ,k = 2
+                    )
+  AIC_res <- harvest(mod_obj = AIC_redux  # result model object from the reduction
+                     ,param   = param       # simulation target betas
+                     ,alpha   = 0.05        # crit for coverage and error computation
+  )
+  AIC_res$method <- 'AIC'
+  AIC_res$n      <- n
+  AIC_res$rho    <- rho
+
+  ## BIC
+  BIC_redux <- step(sat_model
+                    , direction = 'backward'
+                    , trace = 0
+                    , k = log(nrow(dat)))
+  
+  BIC_res <- harvest(mod_obj = BIC_redux
+                     , param = param
+                     , alpha = 0.05)
+  
+  BIC_res$method <- 'BIC'
+  BIC_res$n <- n
+  BIC_res$rho <- rho
+  
+  ## LASSO -lambda min
+  x <- as.matrix(dat[, sprintf("V%02d", 1:20)])
+  y <- dat$y
+  
+  LASSO_redux <- cv.glmnet(x = x
+                             , y = y
+                             , alpha = 1
+                             , type.measure = "mse")
+  
+  LASSO_min_coef <- coef(LASSO_redux, s = "lambda.min")
+  
+  #save results of model using minimum lambda
+  LASSO_min_coef_df <- data.frame(
+    variables = rownames(LASSO_min_coef),
+    estimate  = as.numeric(LASSO_min_coef)
+    )
+  
+  #remove intercept
+  LASSO_min_coef_df <- subset(LASSO_min_coef_df, variables != "(Intercept)")
+   
+  # #begin building results table
+  # LASSO_min_res <- data.frame(
+  # variables = sprintf("V%02d", 1:length(param)),
+  # true_values = param)
+  # 
+  # # match variable names and grab coef estimates
+  # LASSO_min_res$estimate <- LASSO_min_coef_df$estimate[
+  # match(LASSO_min_res$variables, LASSO_min_coef_df$variables)]
+  # 
+  # # if an estimate is missing change the value to 0
+  # LASSO_min_res$estimate[is.na(LASSO_min_res$estimate)] <- 0
+  # 
+  # # if the variable has an estimate mark it as selected
+  # LASSO_min_res$selected <- ifelse(LASSO_min_res$estimate != 0, 1, 0)
+  # 
+  # #vars 1-5 are flagged as true non zero
+  # LASSO_min_res$true_non_zero <- ifelse( LASSO_min_res$variables %in% sprintf("V%02d", 1:5), 1, 0)
+  # 
+  # LASSO_min_res$method <- "LASSO min"
+  # LASSO_min_res$n <- n
+  # LASSO_min_res$rho <- rho
+  # 
+  # 
+  ## LASSO - SE
+  LASSO_se_coef <- coef(LASSO_redux, s = "lambda.1se")
+  
+  #save results of model using SE lambda
+  LASSO_se_coef_df <- data.frame(
+    variables = rownames(LASSO_se_coef),
+    estimate  = as.numeric(LASSO_se_coef)
+    )
+  
+  #remove intercept
+  LASSO_se_coef_df <- subset(LASSO_se_coef_df, variables != "(Intercept)")
+   
+  # #begin building results table
+  # LASSO_se_res <- data.frame(
+  # variables = sprintf("V%02d", 1:length(param)),
+  # true_values = param)
+  # 
+  # # match variable names and grab coef estimates
+  # LASSO_se_res$estimate <- LASSO_se_coef_df$estimate[
+  # match(LASSO_se_res$variables, LASSO_se_coef_df$variables)]
+  # 
+  # # if an estimate is missing change the value to 0
+  # LASSO_se_res$estimate[is.na(LASSO_se_res$estimate)] <- 0
+  # 
+  # # if the variable has an estimate mark it as selected
+  # LASSO_se_res$selected <- ifelse(LASSO_se_res$estimate != 0, 1, 0)
+  # 
+  # #vars 1-5 are flagged as true non zero
+  # LASSO_se_res$true_non_zero <- ifelse( LASSO_se_res$variables %in% sprintf("V%02d", 1:5), 1, 0)
+  # 
+  # LASSO_se_res$method <- "LASSO se"
+  # LASSO_se_res$n <- n
+  # LASSO_se_res$rho <- rho
+  
+  ## Elastic Net lambda min 
+  EN_redux <- cv.glmnet(x = x
+                        , y = y
+                        , alpha = 0.5
+                        , type.measure = "mse")
+
+  # extract coefficients at lambda.min
+  EN_min_coef <- coef(EN_redux, s = "lambda.min")
+  
+  EN_min_coef_df <- data.frame(
+    variables = rownames(EN_min_coef),
+    estimate  = as.numeric(EN_min_coef))
+  
+  # remove intercept
+  EN_min_coef_df <- subset(
+    EN_min_coef_df,
+    variables != "(Intercept)"
+    )
+  
+  # # initialize results table
+  # EN_min_res <- data.frame(
+  #   variables   = sprintf("V%02d", 1:length(param)),
+  #   true_values = param
+  #   )
+  # 
+  # # align estimates by variable name
+  # EN_min_res$estimate <- EN_min_coef_df$estimate[
+  #   match(EN_min_res$variables, EN_min_coef_df$variables)]
+  # 
+  # # variables not selected get coefficient 0
+  # EN_min_res$estimate[is.na(EN_min_res$estimate)] <- 0
+  # 
+  # # indicator for selection
+  # EN_min_res$selected <- ifelse(EN_min_res$estimate != 0, 1, 0)
+  # 
+  # # indicator for truly nonzero variables
+  # EN_min_res$true_non_zero <- ifelse(EN_min_res$variables %in% sprintf("V%02d", 1:5), 1, 0)
+  # 
+  # EN_min_res$method <- "Elastic Net Min"
+  # EN_min_res$n      <- n
+  # EN_min_res$rho    <- rho
+
+  
+  ## Elastic Net lambda se
+  # extract coefficients at lambda.1se
+  EN_se_coef <- coef(EN_redux, s = "lambda.1se")
+  
+  EN_se_coef_df <- data.frame(
+    variables = rownames(EN_se_coef),
+    estimate  = as.numeric(EN_se_coef))
+  
+  # remove intercept
+  EN_se_coef_df <- subset(
+    EN_se_coef_df,
+    variables != "(Intercept)"
+    )
+  
+  # # initialize results table
+  # EN_se_res <- data.frame(
+  #   variables   = sprintf("V%02d", 1:length(param)),
+  #   true_values = param
+  #   )
+  # 
+  # # align estimates by variable name
+  # EN_se_res$estimate <- EN_se_coef_df$estimate[
+  #   match(EN_se_res$variables, EN_se_coef_df$variables)]
+  # 
+  # # variables not selected get coefficient 0
+  # EN_se_res$estimate[is.na(EN_se_res$estimate)] <- 0
+  # 
+  # # indicator for selection
+  # EN_se_res$selected <- ifelse(EN_se_res$estimate != 0, 1, 0)
+  # 
+  # # indicator for truly nonzero variables
+  # EN_se_res$true_non_zero <- ifelse(EN_se_res$variables %in% sprintf("V%02d", 1:5), 1, 0)
+  # 
+  # EN_se_res$method <- "Elastic Net se"
+  # EN_se_res$n      <- n
+  # EN_se_res$rho    <- rho
+  
+  
+  return(rbind(pval_res, AIC_res, BIC_res, LASSO_min_res, LASSO_se_res, EN_min_res, EN_se_res))
+}
+
+test_sim <- simfunc(n = 250, rho = 0.5)
+```
+
+
+## Dealing with many simulation cases
+
+In our simulation we have two main attributes that are being manipulated: sample size and predictor correlation. One way to handle that would be nesting for-loops, but this can get messy fast and it is easy to mix up your indices. One way to cut down the complexity is a profile matrix:
+
+```{r}
+
+profiles <- expand.grid(
+  rho = c(0, 0.35, 0.7)
+ ,N   = c(250, 500)
+)
+
+profiles
+```
+
+
+
+Now we need a function to iterate through a complete simulation profile.
+
+```{r}
+
+spin <- function(nsim = 500, profile){
+  
+  stopifnot(nrow(profile) == 1)
+  
+  res <- list()
+  for(iter in 1:nsim) {
+    tmp <- simfunc(n = profile[,'N'], rho = profile[,'rho'])
+    tmp$iter <- iter
+    res[[iter]] <- tmp
+  }
+  res <- do.call('rbind', res)
+  
+  return(res)
+}
+  
+test_spin <- spin(nsim = 5, profile = profiles[3,])
+```
+
+## The Full Simulation
+
+Defaulting to 10,000 simulations may extend the simulation time, however, estimating a sample size using some reasonable targets may result in a more feasible load (Morris, 2019 - this was uploaded to the week 12 module). For this I will choose to power on the coverage. For this I will use an expected coverage probability of 50% (the worst case in terms of variance). For the SE, I would like to get fairly close, so will use 0.01. This will give reasonable precision in cases of very poor coverage, and much better precision when coverage is closer to 95%. Of course, in critical simulations where precision is critical, higher numbers may be needed and one must give thought to this.
+
+```{r}
+
+# expected coverage
+Ep <- 0.5
+
+# required standard error
+SEr <- 0.01
+nsim <- ceiling(Ep*(1-Ep)/SEr^2)
+nsim
+
+# for comparison at 95% coverage and and SE of 0.005 (so we will have better precision than this, where it matters!)
+0.95*0.05/(0.005^2)
+```
+
+
+
+If you are in a hurry, the `future` package can make parallel processing fairly easy:
+
+```{r message = F, warning = F}
+
+n_profiles <- nrow(profiles)
+
+plan(multisession, workers = n_profiles)
+
+set.seed(14)
+
+system.time({
+simres <- future_lapply (1:n_profiles, function(i){
+  spin(nsim = nsim, profile = profiles[i,])
+}
+,future.seed=TRUE)
+})
+simres <- do.call('rbind', simres)
+# stop the cluster
+plan(sequential)
+```
+
+How many 'workers' can you pick? up to the number of cores on your computer but you should leave at least one free for the operating system to continue to function well. You can get a count of available cores:
+ 8 cores available, should use 7 
+```{r}
+parallel::detectCores()
+
+```
+
+Compute Coverage probability, by method and simulation setting:
+
+```{r message=F, warning=F}
+
+p_cover <- simres |>
+  filter(true_non_zero == 1) |>
+  group_by(n, rho, method, variables) |>
+  summarise(P_cover = mean(covered)*100)
+
+knitr::kable(
+p_cover |> pivot_wider(
+  names_from = variables
+ ,values_from = P_cover
+),
+digits = 1)
+```
+
+Compute Bias: mean difference between estimated and true coefficient across replicates, treat unselected variables as having an estimate of 0 
+
+Compute true positive rate: proportion of simulations in which each active predictor is retained in the final model
+num of v01-v05 retained /5
+
+Compute false positive rate: proportion of sim in which each noise predictor is retained in final model
+
+# References
+
+1. Morris TP, White IR, Crowther MJ. Using simulation studies to evaluate statistical methods. Stat Med. 2019;38(11):2074-2102. doi:10.1002/sim.8086
+
+
