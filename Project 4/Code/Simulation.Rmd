@@ -43,25 +43,34 @@ library(hdrm)
 # temp data and model object for testing the function
 betas <- c(1/6, 1/3, 1/2, 2/3, 5/6, rep(0, 15))
 
-dat_obj <- gen_data(n = 250 
-                #number of features
+dat_obj <- gen_data(#sample size
+               n = 250 
+               #number of features
                ,p = 20
                #number of non-zero features
                ,p1 = 5
+               #regression coefficient vector 
                ,beta = betas
+               #y generated using linear model
                ,family = 'gaussian'
+               #correlation structure between features
                ,corr = 'exchangeable'
+               #correlation coefficient
                ,rho = 0.35
                ) 
+# save generated y and x1-x20 values
 dat <- data.frame(y=dat_obj$y, dat_obj$X)
 
+#generating model
 sat_model <- lm(y ~ ., data = dat)
 summary(sat_model)
 
 pval_redux <- step(sat_model
                   ,direction = 'backward'
+                  #quantile function for chi sq, alpha 0.05 1 df aka P(X<= k) = 0.95
                   ,k = qchisq(1-0.05, 1)
                   )
+
 class(summary(pval_redux)$coefficients)
 
 
@@ -71,27 +80,38 @@ harvest <- function(mod_obj      # result model object from the reduction
                    ,alpha = 0.05 # crit for coverage and error computation
 ) {
   
-  # extract model results
+  #extract model results
+  #extracting coefficients
   estimates <- as.data.frame(summary(mod_obj)$coefficients) 
+  #new column called param stores estimate names (previously the rownames)
   estimates <- within(estimates, {
     param <- row.names(estimates)
     })
+  #Wald CIs
   CIs <- as.data.frame(confint.default(mod_obj, level = 1-alpha))
+  #change name from numeric vals
   names(CIs) <- c('LCL','UCL')
+  #new column called param stores estimates names (previously rownames)
   CIs <- within(CIs, {
     param <- row.names(CIs)
   })
   
+  #create varname objects
   var_names <- sprintf("V%02d", 1:length(param))
   
   # assemble summaries
   res_dat <- data.frame(
+    #varnames of simulated dat
     variables = var_names
+    #target betas we assigned in beginning are dropped into true_values
    ,true_values = param
   ) |>
     within({
+      # flag whether v01-v20 shows up in estimates, only variables that were not dropped in selection step will show up here
       selected <- ifelse(variables %in% row.names(estimates), 1, 0)
+      # flag whether variables v01-v20 are statistically significant 
       signif   <- ifelse(variables %in% row.names(estimates[estimates[,4] < alpha,]), 1, 0)
+      # flag the first five var as true non-zero coefs
       true_non_zero <- ifelse(variables %in% sprintf("V%02d", 1:5), 1, 0)
     }) |>
     merge(CIs
@@ -99,21 +119,24 @@ harvest <- function(mod_obj      # result model object from the reduction
           ,by.y = 'param'
           ,all.x = T) |>
     within({
+      #if the LCL is greater than the target betas assigned and the UCL is less than the target betas assigned we have coverage
       covered <- ifelse(LCL <= true_values & true_values <= UCL, 1, 0)
     })
     
-  # fix non-selected for coverage
-  # not selected and tuly not supposed to be, coverage = 0
+  #if covered is missing, variable was not selected and variable is a true nonzero effect then covered = 0
+  # aka model failed to select a variable that matters 
   res_dat[is.na(res_dat$covered) == T & 
           res_dat$selected == 0 & 
           res_dat$true_non_zero == 1,'covered'] <- 0 
-  # selected and supposed to be non-zero, coverage = 1
+  #if covered is missing, variable was not selected and variable is a true zero effect then covered = 1
+  #aka model correctly excluded a null variable
   res_dat[is.na(res_dat$covered) == T & 
           res_dat$selected == 0 & 
           res_dat$true_non_zero == 0,'covered'] <- 1 
   
   return(res_dat)
 }
+
 
 testit <- harvest(pval_redux, param = betas, alpha = 0.01)
 ```
