@@ -14,6 +14,7 @@ library(hdrm)
 library(glmnet)
 library(dplyr)
 library(openxlsx)
+library(tidyr)
 ```
 Potential Cases:
 For all 
@@ -143,7 +144,7 @@ post_glmnet_lm <- function(cv_obj, dat, s) {
 
 
 
-## Simu function: generating data and running analyses
+## Sim function: generating data and running analyses
 
 In this function I propose to encode the process of running one simulation iteration collecting and returning the results.
 
@@ -361,11 +362,39 @@ digits = 1)
 ```
 
 Compute Bias: mean difference between estimated and true coefficient across replicates, treat unselected variables as having an estimate of 0 
+```{r}
+bias <- simres |>
+  group_by(n, rho, method, variables) |>
+  summarise(
+    bias = mean(estimate - true_values),
+    .groups = "drop"
+  )
+```
 
 Compute true positive rate: proportion of simulations in which each active predictor is retained in the final model
 num of v01-v05 retained /5
+```{r}
+tpr <- simres |>
+  filter(true_non_zero == 1) |>
+  group_by(n, rho, method) |>
+  summarise(
+    TPR = mean(selected) * 100,
+    .groups = "drop"
+  )
+```
+
 
 Compute false positive rate: proportion of sim in which each noise predictor is retained in final model
+
+```{r}
+fpr <- simres |>
+  filter(true_non_zero == 0) |>
+  group_by(n, rho, method) |>
+  summarise(
+    FPR = mean(selected) * 100,
+    .groups = "drop"
+  )
+```
 
 # References
 
