@@ -13,6 +13,7 @@ library(furrr)
 library(hdrm)
 library(glmnet)
 library(dplyr)
+library(openxlsx)
 ```
 Potential Cases:
 For all 
@@ -293,29 +294,6 @@ profiles
 ```
 
 
-
-Now we need a function to iterate through a complete simulation profile.
-
-```{r}
-
-spin <- function(nsim = 500, profile){
-  
-  stopifnot(nrow(profile) == 1)
-  
-  res <- list()
-  for(iter in 1:nsim) {
-    tmp <- simfunc(n = profile[,'N'], rho = profile[,'rho'])
-    tmp$iter <- iter
-    res[[iter]] <- tmp
-  }
-  res <- do.call('rbind', res)
-  
-  return(res)
-}
-  
-test_spin <- spin(nsim = 5, profile = profiles[3,])
-```
-
 ## The Full Simulation
 
 Defaulting to 10,000 simulations may extend the simulation time, however, estimating a sample size using some reasonable targets may result in a more feasible load (Morris, 2019 - this was uploaded to the week 12 module). For this I will choose to power on the coverage. For this I will use an expected coverage probability of 50% (the worst case in terms of variance). For the SE, I would like to get fairly close, so will use 0.01. This will give reasonable precision in cases of very poor coverage, and much better precision when coverage is closer to 95%. Of course, in critical simulations where precision is critical, higher numbers may be needed and one must give thought to this.
@@ -336,10 +314,7 @@ nsim
 
 
 
-If you are in a hurry, the `future` package can make parallel processing fairly easy:
-
-```{r message = F, warning = F}
-
+```{r}
 n_profiles <- nrow(profiles)
 
 plan(multisession, workers = n_profiles)
@@ -347,21 +322,25 @@ plan(multisession, workers = n_profiles)
 set.seed(14)
 
 system.time({
-simres <- future_lapply (1:n_profiles, function(i){
-  spin(nsim = nsim, profile = profiles[i,])
-}
-,future.seed=TRUE)
+  simres_list <- future_lapply(
+    1:n_profiles,
+    function(i) {
+      spin(
+        nsim = nsim,
+        profile = profiles[i, ]
+      )
+    },
+    future.seed = TRUE
+  )
 })
-simres <- do.call('rbind', simres)
-# stop the cluster
+
+simres <- do.call(rbind, simres_list)
+
 plan(sequential)
 ```
 
-How many 'workers' can you pick? up to the number of cores on your computer but you should leave at least one free for the operating system to continue to function well. You can get a count of available cores:
- 8 cores available, should use 7 
 ```{r}
-parallel::detectCores()
-
+write.xlsx(simres, "~/BIOS6624/Project 4/Output/Results.xslx")
 ```
 
 Compute Coverage probability, by method and simulation setting:
