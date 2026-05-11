@@ -340,7 +340,7 @@ plan(sequential)
 ```
 
 ```{r}
-write.xlsx(simres, "~/BIOS6624/Project 4/Output/Results.xslx")
+write.xlsx(simres, "~/BIOS6624/Project 4/Output/Results.xlsx")
 ```
 
 Compute Coverage probability, by method and simulation setting:
