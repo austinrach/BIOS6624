@@ -103,75 +103,29 @@ harvest <- function(mod_obj      # result model object from the reduction
 }
 
 #Results extraction function for glmnet function (LASSO and elastic net)
-harvest_glmnet <- function(cv_obj,
-                           param,
-                           method,
-                           n,
-                           rho,
-                           s = "lambda.min") {
+post_glmnet_lm <- function(cv_obj, dat, s) {
+  # allows us to specify whether to pull coefficients for lambda.min model or lambda.1se model
+  coefs <- coef(cv_obj, s = s)
   
-  # extract coefficients at chosen lambda
-  coef_obj <- coef(cv_obj, s = s)
+  # extract var with non-zero coefficients
+  selected_vars <- rownames(coefs)[as.numeric(coefs) != 0]
+  #exclude intercepts
+  selected_vars <- selected_vars[selected_vars != "(Intercept)"]
   
-  coef_df <- data.frame(
-    variables = rownames(coef_obj),
-    estimate  = as.numeric(coef_obj)
+  # if no variables are selected then refit with no variables
+  if(length(selected_vars) == 0) {
+    return(lm(y ~ 1, data = dat))
+  }
+  
+  # created formula using vars with non-zero coefficients
+  form <- as.formula(
+    paste("y ~", paste(selected_vars, collapse = " + "))
   )
   
-  # remove intercept
-  coef_df <- subset(coef_df, variables != "(Intercept)")
-  
-  # build results table
-  res_dat <- data.frame(
-    variables   = sprintf("V%02d", 1:length(param)),
-    true_values = param
-  )
-  
-  # align estimates with variable list
-  res_dat$estimate <- coef_df$estimate[
-    match(res_dat$variables, coef_df$variables)
-  ]
-  
-  # unselected variables have coefficient 0
-  res_dat$estimate[is.na(res_dat$estimate)] <- 0
-  
-  # same indicators as harvest()
-  res_dat$true_non_zero <- ifelse(
-    res_dat$variables %in% sprintf("V%02d", 1:5),
-    1,
-    0
-  )
-  
-  res_dat$selected <- ifelse(res_dat$estimate != 0, 1, 0)
-  
-  # glmnet does not give p-values or Wald CIs
-  res_dat$signif  <- NA
-  res_dat$LCL     <- NA
-  res_dat$UCL     <- NA
-  res_dat$covered <- NA
-  
-  # metadata
-  res_dat$method <- method
-  res_dat$n      <- n
-  res_dat$rho    <- rho
-  
-  # reorder columns to match your p-value output
-  res_dat <- res_dat[, c(
-    "variables",
-    "true_values",
-    "true_non_zero",
-    "signif",
-    "selected",
-    "LCL",
-    "UCL",
-    "covered",
-    "method",
-    "n",
-    "rho"
-  )]
-  
-  return(res_dat)
+  #refit model with lm
+  lm(form, data = dat)
 }
+   
 
 ```
 
@@ -250,24 +204,30 @@ simfunc <- function(n, rho) {
                              , y = y
                              , alpha = 1
                              , type.measure = "mse")
-
-  LASSO_min_res <- harvest_glmnet(
-    cv_obj = LASSO_redux,
-    param  = param,
-    method = "LASSO MIN",
-    n      = n,
-    rho    = rho,
-    s      = "lambda.min"
-    )
   
-  LASSO_se_res <- harvest_glmnet(
-    cv_obj = LASSO_redux,
-    param  = param,
-    method = "LASSO SE",
-    n      = n,
-    rho    = rho,
-    s      = "lambda.1se"
-    )
+  ## LASSO min lambda
+  LASSO_min_lm <- post_glmnet_lm(LASSO_redux, dat, s = "lambda.min")
+  
+  LASSO_min_res <- harvest(mod_obj = LASSO_min_lm
+                           , param = param
+                           , alpha = 0.05
+                           )
+  
+  LASSO_min_res$method <- "LASSO MIN"
+  LASSO_min_res$n <- n
+  LASSO_min_res$rho <- rho
+  
+  ## LASSO se lambda
+  LASSO_se_lm <- post_glmnet_lm(LASSO_redux, dat, s = "lambda.1se")
+  
+  LASSO_se_res <- harvest(mod_obj = LASSO_se_lm
+                          , param = param
+                          , alpha = 0.05
+                          )
+  
+  LASSO_se_res$method <- "LASSO SE"
+  LASSO_se_res$n <- n
+  LASSO_se_res$rho <- rho
   
   ## Elastic Net
   EN_redux <- cv.glmnet(x = x
@@ -275,24 +235,35 @@ simfunc <- function(n, rho) {
                         , alpha = 0.5
                         , type.measure = "mse")
   
-  EN_min_res <- harvest_glmnet(
-    cv_obj = EN_redux,
-    param  = param,
-    method = "Elastic Net MIN",
-    n      = n,
-    rho    = rho,
-    s      = "lambda.min")
+  ## Elastic Net Min
+  EN_min_lm <- post_glmnet_lm(EN_redux, dat, s = "lambda.min")
   
-   EN_se_res <- harvest_glmnet(
-    cv_obj = EN_redux,
-    param  = param,
-    method = "Elastic Net SE",
-    n      = n,
-    rho    = rho,
-    s      = "lambda.1se")
+  EN_min_res <- harvest(mod_obj = EN_min_lm
+                        , param = param 
+                        , alpha = 0.05
+                        )
   
-  return(rbind(pval_res, AIC_res, BIC_res, LASSO_min_res, LASSO_se_res, EN_min_res, EN_se_res))
-}
+  EN_min_res$method <- "EN MIN"
+  EN_min_res$n <- n
+  EN_min_res$rho <- rho
+  
+  ## Elastic Net SE
+  EN_se_lm <- post_glmnet_lm(EN_redux, dat, s = "lambda.1se")
+  
+  EN_se_res <- harvest(mod_obj = EN_se_lm
+                       , param = param
+                       , alpha = 0.05)
+  
+  EN_se_res$method <- "EN SE"
+  EN_se_res$n <- n
+  EN_se_res$rho <- rho
+  
+  #return(rbind(pval_res, AIC_res, BIC_res, LASSO_min_res, LASSO_se_res, EN_min_res, EN_se_res))
+  
+   out <- rbind(pval_res, AIC_res, BIC_res, LASSO_min_res, LASSO_se_res, EN_min_res, EN_se_res)
+   out <- out[, c("variables", "true_values", "true_non_zero", "signif", "selected", "LCL", "UCL", "covered", "method",     "n","rho")]
+   return(out)
+   }
 
 test_sim <- simfunc(n = 250, rho = 0.5)
 ```
