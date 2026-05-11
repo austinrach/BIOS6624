@@ -79,6 +79,12 @@ harvest <- function(mod_obj      # result model object from the reduction
       # flag the first five var as true non-zero coefs
       true_non_zero <- ifelse(variables %in% sprintf("V%02d", 1:5), 1, 0)
     }) |>
+      merge(
+    estimates[, c("param", "Estimate")],
+    by.x = "variables",
+    by.y = "param",
+    all.x = TRUE
+  ) |>
     merge(CIs
           ,by.x = 'variables'
           ,by.y = 'param'
@@ -87,6 +93,11 @@ harvest <- function(mod_obj      # result model object from the reduction
       #if the LCL is greater than the target betas assigned and the UCL is less than the target betas assigned we have coverage
       covered <- ifelse(LCL <= true_values & true_values <= UCL, 1, 0)
     })
+  
+  #rename estimate
+  names(res_dat)[names(res_dat) == "Estimate"] <- "estimate"
+  #if there is no estimate make it 0
+  res_dat$estimate[is.na(res_dat$estimate)] <- 0
     
   #if covered is missing, variable was not selected and variable is a true nonzero effect then covered = 0
   # aka model failed to select a variable that matters 
@@ -258,10 +269,8 @@ simfunc <- function(n, rho) {
   EN_se_res$n <- n
   EN_se_res$rho <- rho
   
-  #return(rbind(pval_res, AIC_res, BIC_res, LASSO_min_res, LASSO_se_res, EN_min_res, EN_se_res))
-  
    out <- rbind(pval_res, AIC_res, BIC_res, LASSO_min_res, LASSO_se_res, EN_min_res, EN_se_res)
-   out <- out[, c("variables", "true_values", "true_non_zero", "signif", "selected", "LCL", "UCL", "covered", "method",     "n","rho")]
+   out <- out[, c("variables", "true_values","estimate", "true_non_zero", "signif", "selected", "LCL", "UCL", "covered", "method",     "n","rho")]
    return(out)
    }
 
