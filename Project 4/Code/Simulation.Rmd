@@ -503,9 +503,7 @@ FinalResults <- TPR |>
   left_join(Type2, by = c("method", "n", "rho")) |>
   left_join(ModelSize, by = c("method", "n", "rho")) |>
   left_join(CorrectSelection, by = c("method", "n", "rho"))
-```
 
-```{r}
 FinalResults <- FinalResults |>
   mutate(
     Coverage = Coverage * 100,
@@ -513,6 +511,194 @@ FinalResults <- FinalResults |>
     Type2 = Type2 * 100,
     CorrectSelection = CorrectSelection * 100
   )
+```
+
+
+```{r}
+library(gt)
+library(dplyr)
+
+FinalResults |>
+  mutate(
+    method = factor(method, levels = c("PVAL", "AIC", "BIC", "LASSO MIN", "LASSO SE", "EN MIN", "EN SE")),
+    rho_label = paste0("ρ = ", rho)
+  ) |>
+  arrange(n, rho, method) |>
+  select(method, n, rho_label, TPR, FPR, Bias, Coverage, Type1, Type2, AvgModelSize, CorrectSelection) |>
+  gt(groupname_col = "rho_label", rowname_col = "method") |>
+  
+  tab_header(
+    title = "Table 2: Simulation Results by Method and Scenario",
+    subtitle = md("Metrics averaged across 2,500 simulation replicates per scenario")
+  ) |>
+  
+  tab_spanner(label = md("**Variable Selection**"), columns = c(TPR, FPR, CorrectSelection, AvgModelSize)) |>
+  tab_spanner(label = md("**Estimation**"),         columns = c(Bias, Coverage)) |>
+  tab_spanner(label = md("**Significance**"),        columns = c(Type1, Type2)) |>
+  
+  cols_label(
+    method           = "Method",
+    TPR              = "TPR (%)",
+    FPR              = "FPR (%)",
+    Bias             = "Bias",
+    Coverage         = "Coverage (%)",
+    Type1            = "Type I (%)",
+    Type2            = "Type II (%)",
+    AvgModelSize     = "Avg. Model Size",
+    CorrectSelection = "Exact Select. (%)"
+  ) |>
+  
+  fmt_number(columns = c(TPR, FPR, Coverage, Type1, Type2, CorrectSelection), decimals = 1) |>
+  fmt_number(columns = Bias,         decimals = 3) |>
+  fmt_number(columns = AvgModelSize, decimals = 1) |>
+  
+  # Highlight best per metric within each group (optional)
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_row_groups()
+  ) |>
+  
+  tab_footnote("TPR = True Positive Rate; FPR = False Positive Rate. Active predictors: V01–V05.",
+               locations = cells_column_labels(TPR)) |>
+  tab_footnote("Coverage of 95% Wald confidence intervals for active predictors.",
+               locations = cells_column_labels(Coverage)) |>
+  tab_footnote("Exact selection: all 5 active predictors selected, no noise predictors selected.",
+               locations = cells_column_labels(CorrectSelection)) |>
+  
+  tab_options(
+    table.border.top.style            = "solid",
+    table.border.top.width            = px(2),
+    table.border.bottom.style         = "solid",
+    table.border.bottom.width         = px(2),
+    column_labels.border.bottom.style = "solid",
+    column_labels.border.bottom.width = px(1),
+    table_body.hlines.style           = "none",
+    row_group.border.top.style        = "solid",
+    row_group.border.top.width        = px(1),
+    row_group.border.bottom.style     = "hidden",
+    data_row.padding                  = px(4),
+    heading.align                     = "left",
+    table.font.size                   = px(11)
+  ) |>
+  
+  cols_align(align = "center", columns = -method)
+```
+
+```{r}
+# Consistent method ordering and labels
+method_levels <- c("PVAL", "AIC", "BIC", "LASSO MIN", "LASSO SE", "EN MIN", "EN SE")
+method_labels <- c("p-value", "AIC", "BIC", "LASSO\n(λ.min)", "LASSO\n(λ.1se)", "EN\n(λ.min)", "EN\n(λ.1se)")
+
+# Shared publication theme
+pub_theme <- theme_bw(base_size = 12) +
+  theme(
+    panel.grid.minor    = element_blank(),
+    panel.grid.major.x  = element_blank(),
+    strip.background    = element_rect(fill = "grey92", color = "grey50"),
+    strip.text          = element_text(face = "bold", size = 11),
+    legend.position     = "bottom",
+    legend.title        = element_text(face = "bold"),
+    axis.title          = element_text(face = "bold"),
+    plot.title          = element_text(face = "bold", size = 13),
+    plot.subtitle       = element_text(size = 10, color = "grey40")
+  )
+
+# Prep data
+plot_dat <- FinalResults |>
+  mutate(
+    method = factor(method, levels = method_levels, labels = method_labels),
+    N_label = paste0("N = ", n),
+    rho_label = paste0("ρ = ", rho)
+  )
+
+```
+
+```{r}
+plot_dat |>
+  select(method, N_label, rho_label, TPR, FPR) |>
+  pivot_longer(cols = c(TPR, FPR), names_to = "metric", values_to = "value") |>
+  mutate(metric = factor(metric, levels = c("TPR", "FPR"),
+                         labels = c("True Positive Rate", "False Positive Rate"))) |>
+  ggplot(aes(x = method, y = value, fill = rho_label)) +
+  geom_col(position = position_dodge(0.8), width = 0.7, color = "white") +
+  geom_hline(data = data.frame(metric = "True Positive Rate",  yint = 100),
+             aes(yintercept = yint), linetype = "dashed", color = "grey30") +
+  geom_hline(data = data.frame(metric = "False Positive Rate", yint = 5),
+             aes(yintercept = yint), linetype = "dashed", color = "grey30") +
+  facet_grid(metric ~ N_label, scales = "free_y") +
+  scale_fill_manual(values = c("#4E79A7", "#F28E2B", "#E15759"),
+                    name = "Predictor Correlation") +
+  scale_y_continuous(labels = scales::label_number(suffix = "%")) +
+  labs(
+    title    = "Figure 1: True and False Positive Rates by Method and Scenario",
+    subtitle = "Dashed lines: ideal TPR = 100% and nominal FPR = 5%",
+    x = NULL, y = "Rate (%)"
+  ) +
+  pub_theme
+
+ggsave("Figure1_TPR_FPR.png", width = 10, height = 6, dpi = 300)
+```
+
+
+```{r}
+# Coverage reference line at 95%
+plot_dat |>
+  select(method, N_label, rho_label, Bias, Coverage) |>
+  pivot_longer(cols = c(Bias, Coverage), names_to = "metric", values_to = "value") |>
+  mutate(metric = factor(metric, levels = c("Bias", "Coverage"),
+                         labels = c("Bias (Estimated − True)", "Coverage (%)"))) |>
+  ggplot(aes(x = method, y = value, color = rho_label, group = rho_label)) +
+  geom_line(linewidth = 0.8) +
+  geom_point(size = 2.5) +
+  geom_hline(data = data.frame(metric = "Bias (Estimated − True)", yint = 0),
+             aes(yintercept = yint), linetype = "dashed", color = "grey30") +
+  geom_hline(data = data.frame(metric = "Coverage (%)", yint = 95),
+             aes(yintercept = yint), linetype = "dashed", color = "grey30") +
+  facet_grid(metric ~ N_label, scales = "free_y") +
+  scale_color_manual(values = c("#4E79A7", "#F28E2B", "#E15759"),
+                     name = "Predictor Correlation") +
+  labs(
+    title    = "Figure 2: Bias and Coverage by Method and Scenario",
+    subtitle = "Dashed lines: ideal Bias = 0 and nominal Coverage = 95%",
+    x = NULL, y = NULL
+  ) +
+  pub_theme
+
+ggsave("Figure2_Bias_Coverage.png", width = 10, height = 6, dpi = 300)
+```
+
+```{r}
+p1 <- plot_dat |>
+  ggplot(aes(x = method, y = CorrectSelection, fill = rho_label)) +
+  geom_col(position = position_dodge(0.8), width = 0.7, color = "white") +
+  facet_wrap(~ N_label) +
+  scale_fill_manual(values = c("#4E79A7", "#F28E2B", "#E15759"),
+                    name = "Predictor Correlation") +
+  scale_y_continuous(labels = scales::label_number(suffix = "%")) +
+  labs(title = "A: Exact Correct Selection Rate", x = NULL, y = "%") +
+  pub_theme + theme(legend.position = "none")
+
+p2 <- plot_dat |>
+  ggplot(aes(x = method, y = AvgModelSize, color = rho_label, group = rho_label)) +
+  geom_line(linewidth = 0.8) +
+  geom_point(size = 2.5) +
+  geom_hline(yintercept = 5, linetype = "dashed", color = "grey30") +
+  facet_wrap(~ N_label) +
+  scale_color_manual(values = c("#4E79A7", "#F28E2B", "#E15759"),
+                     name = "Predictor Correlation") +
+  labs(title = "B: Average Model Size", subtitle = "Dashed = true model size (5)",
+       x = NULL, y = "# Predictors") +
+  pub_theme
+
+library(patchwork)
+p1 / p2 +
+  plot_annotation(
+    title = "Figure 3: Model Selection Quality",
+    theme = theme(plot.title = element_text(face = "bold", size = 13))
+  )
+
+ggsave("Figure3_Selection.png", width = 10, height = 8, dpi = 300)
+
 ```
 
 
