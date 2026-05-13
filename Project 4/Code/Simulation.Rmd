@@ -15,6 +15,7 @@ library(glmnet)
 library(dplyr)
 library(openxlsx)
 library(tidyr)
+library(gt)
 ```
 Potential Cases:
 For all 
@@ -145,9 +146,7 @@ post_glmnet_lm <- function(cv_obj, dat, s) {
 
 
 ## Sim function: generating data and running analyses
-
-In this function I propose to encode the process of running one simulation iteration collecting and returning the results.
-
+# Initital code provided by Carter Sevick and modified by Rachel Austin
 ```{r}
 
 simfunc <- function(n, rho) {
@@ -282,8 +281,6 @@ test_sim <- simfunc(n = 250, rho = 0.5)
 
 ## Dealing with many simulation cases
 
-In our simulation we have two main attributes that are being manipulated: sample size and predictor correlation. One way to handle that would be nesting for-loops, but this can get messy fast and it is easy to mix up your indices. One way to cut down the complexity is a profile matrix:
-
 ```{r}
 
 profiles <- expand.grid(
@@ -344,37 +341,11 @@ plan(sequential)
 write.xlsx(simres, "~/BIOS6624/Project 4/Output/Results.xlsx")
 ```
 
-Compute Coverage probability, by method and simulation setting:
-
-```{r message=F, warning=F}
-
-p_cover <- simres |>
-  filter(true_non_zero == 1) |>
-  group_by(n, rho, method, variables) |>
-  summarise(P_cover = mean(covered)*100)
-
-knitr::kable(
-p_cover |> pivot_wider(
-  names_from = variables
- ,values_from = P_cover
-),
-digits = 1)
-```
-
-Compute Bias: mean difference between estimated and true coefficient across replicates, treat unselected variables as having an estimate of 0 
-```{r}
-bias <- simres |>
-  group_by(n, rho, method, variables) |>
-  summarise(
-    bias = mean(estimate - true_values),
-    .groups = "drop"
-  )
-```
 
 Compute true positive rate: proportion of simulations in which each active predictor is retained in the final model
 num of v01-v05 retained /5
 ```{r}
-tpr <- simres |>
+TPR <- simres |>
   filter(true_non_zero == 1) |>
   group_by(n, rho, method) |>
   summarise(
@@ -387,7 +358,7 @@ tpr <- simres |>
 Compute false positive rate: proportion of sim in which each noise predictor is retained in final model
 
 ```{r}
-fpr <- simres |>
+FPR <- simres |>
   filter(true_non_zero == 0) |>
   group_by(n, rho, method) |>
   summarise(
@@ -395,6 +366,155 @@ fpr <- simres |>
     .groups = "drop"
   )
 ```
+
+
+Compute Bias: mean difference between estimated and true coefficient across replicates, treat unselected variables as having an estimate of 0 
+```{r}
+Bias <- simres |>
+  filter(true_non_zero == 1) |>
+  mutate(
+    bias = estimate - true_values
+  ) |>
+  group_by(method, n, rho) |>
+  summarise(
+    Bias = mean(bias),
+    .groups = "drop"
+  )
+```
+
+
+
+
+Compute Coverage probability, by method and simulation setting:
+
+```{r message=F, warning=F}
+
+Coverage <- simres |>
+  filter(true_non_zero == 1) |>
+  group_by(method, n, rho) |>
+  summarise(
+    Coverage = mean(covered),
+    .groups = "drop"
+  )
+```
+
+Compute Type I error: noise variables declared significant
+```{r}
+Type1 <- simres |>
+  filter(true_non_zero == 0) |>
+  group_by(method, n, rho) |>
+  summarise(
+    Type1 = mean(signif),
+    .groups = "drop"
+  )
+```
+
+Compute Type II error: active variables declared not significant
+```{r}
+Type2 <- simres |>
+  filter(true_non_zero == 1) |>
+  group_by(method, n, rho) |>
+  summarise(
+    Type2 = mean(signif == 0),
+    .groups = "drop"
+  )
+```
+
+Compute average model size: average number of selected predictors 
+```{r}
+ModelSize <- simres |>
+  group_by(iter, method, n, rho) |>
+  summarise(
+    model_size = sum(selected),
+    .groups = "drop"
+  ) |>
+  group_by(method, n, rho) |>
+  summarise(
+    AvgModelSize = mean(model_size),
+    .groups = "drop"
+  )
+```
+
+Compute prop where all 5 active predictors are selected and no noise predictors are selected
+```{r}
+CorrectSelection <- simres |>
+  group_by(iter, method, n, rho) |>
+  summarise(
+    all_true = all(selected[true_non_zero == 1] == 1),
+    no_false = all(selected[true_non_zero == 0] == 0),
+    exact = all_true & no_false,
+    .groups = "drop"
+  ) |>
+  group_by(method, n, rho) |>
+  summarise(
+    CorrectSelection = mean(exact),
+    .groups = "drop"
+  )
+```
+
+
+# Tables
+```{r}
+
+# Create the simulation scenarios data frame
+scenarios <- data.frame(
+  Scenario   = 1:6,
+  N          = c(250, 250, 250, 500, 500, 500),
+  rho        = c(0, 0.35, 0.70, 0, 0.35, 0.70)
+)
+
+# Build the gt table
+scenarios |>
+  gt() |>
+  
+  # Column labels
+  cols_label(
+    Scenario = "Scenario",
+    N        = md("Sample Size (*N*)"),
+    rho      = md("Predictor Correlation (ρ)")
+  ) |>
+  
+  # Title and subtitle
+  tab_header(
+    title    = "Table 1: Simulation Study Design",
+    subtitle = md("Six scenarios crossing sample size and predictor correlation")
+  ) |>
+  
+  # Optional: footnote explaining exchangeable structure
+  tab_footnote(
+    footnote = "Predictors follow an exchangeable (compound symmetry) correlation structure.",
+    locations = cells_column_labels(columns = rho)
+  ) |>
+  
+  # Center numeric columns
+  cols_align(align = "center", columns = c(Scenario, rho)) |>
+  
+  # Format rho as decimals
+  fmt_number(columns = rho, decimals = 2)
+```
+
+
+```{r}
+FinalResults <- TPR |>
+  left_join(FPR, by = c("method", "n", "rho")) |>
+  left_join(Bias, by = c("method", "n", "rho")) |>
+  left_join(Coverage, by = c("method", "n", "rho")) |>
+  left_join(Type1, by = c("method", "n", "rho")) |>
+  left_join(Type2, by = c("method", "n", "rho")) |>
+  left_join(ModelSize, by = c("method", "n", "rho")) |>
+  left_join(CorrectSelection, by = c("method", "n", "rho"))
+```
+
+```{r}
+FinalResults <- FinalResults |>
+  mutate(
+    Coverage = Coverage * 100,
+    Type1 = Type1 * 100,
+    Type2 = Type2 * 100,
+    CorrectSelection = CorrectSelection * 100
+  )
+```
+
 
 # References
 
