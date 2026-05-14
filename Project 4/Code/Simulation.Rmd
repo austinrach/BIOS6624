@@ -515,9 +515,6 @@ FinalResults <- FinalResults |>
 
 
 ```{r}
-library(gt)
-library(dplyr)
-
 FinalResults |>
   mutate(
     method = factor(method, levels = c("PVAL", "AIC", "BIC", "LASSO MIN", "LASSO SE", "EN MIN", "EN SE")),
@@ -636,7 +633,7 @@ plot_dat |>
   ) +
   pub_theme
 
-ggsave("Figure1_TPR_FPR.png", width = 10, height = 6, dpi = 300)
+ggsave("/Users/austinra/BIOS6624/Project 4/Output/Figure1_TPR_FPR.png", width = 10, height = 6, dpi = 300)
 ```
 
 
@@ -664,7 +661,7 @@ plot_dat |>
   ) +
   pub_theme
 
-ggsave("Figure2_Bias_Coverage.png", width = 10, height = 6, dpi = 300)
+ggsave("/Users/austinra/BIOS6624/Project 4/Output/Figure2_Bias_Coverage.png", width = 10, height = 6, dpi = 300)
 ```
 
 ```{r}
@@ -697,7 +694,7 @@ p1 / p2 +
     theme = theme(plot.title = element_text(face = "bold", size = 13))
   )
 
-ggsave("Figure3_Selection.png", width = 10, height = 8, dpi = 300)
+ggsave("/Users/austinra/BIOS6624/Project 4/Output/Figure3_Selection.png", width = 10, height = 8, dpi = 300)
 
 ```
 
